@@ -1,1063 +1,1239 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Watashiwa Tool - Standup Aggregator</title>
-<link rel="icon" type="image/jpeg" href="logo.jpg">
-<link rel="shortcut icon" type="image/jpeg" href="logo.jpg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
-<style>
-  :root {
-    --bg-base: #0B0F17;
-    --bg-surface: #141C28;
-    --bg-surface-elevated: #1B2636;
-    --bg-input: #111722;
-    --border-color: #263346;
-    --border-highlight: #3B4D66;
-    
-    --text-primary: #F1F5F9;
-    --text-secondary: #94A3B8;
-    --text-muted: #64748B;
-    
-    --accent-teal: #2DD4BF;
-    --accent-teal-hover: #14B8A6;
-    --accent-teal-soft: rgba(45, 212, 191, 0.12);
-    --accent-teal-border: rgba(45, 212, 191, 0.35);
-    --accent-teal-glow: rgba(45, 212, 191, 0.25);
-    
-    --accent-amber: #F59E0B;
-    --accent-amber-soft: rgba(245, 158, 11, 0.15);
-    --accent-amber-text: #FCD34D;
-    
-    --accent-red: #F87171;
-    --accent-red-soft: rgba(248, 113, 113, 0.15);
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watashiwa Tool - Standup Aggregator</title>
+  <link rel="icon" type="image/jpeg" href="logo.jpg">
+  <link rel="shortcut icon" type="image/jpeg" href="logo.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
+  <style>
+    :root {
+      --bg-base: #0B0F17;
+      --bg-surface: #141C28;
+      --bg-surface-elevated: #1B2636;
+      --bg-input: #111722;
+      --border-color: #263346;
+      --border-highlight: #3B4D66;
 
-    --font-display: 'Space Grotesk', sans-serif;
-    --font-body: 'Inter', sans-serif;
-    --font-mono: 'IBM Plex Mono', monospace;
+      --text-primary: #F1F5F9;
+      --text-secondary: #94A3B8;
+      --text-muted: #64748B;
 
-    --radius-sm: 6px;
-    --radius-md: 10px;
-    --radius-lg: 14px;
-    --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.25);
-  }
+      --accent-teal: #2DD4BF;
+      --accent-teal-hover: #14B8A6;
+      --accent-teal-soft: rgba(45, 212, 191, 0.12);
+      --accent-teal-border: rgba(45, 212, 191, 0.35);
+      --accent-teal-glow: rgba(45, 212, 191, 0.25);
 
-  [data-theme="light"] {
-    --bg-base: #F8FAFC;
-    --bg-surface: #FFFFFF;
-    --bg-surface-elevated: #F1F5F9;
-    --bg-input: #F8FAFC;
-    --border-color: #E2E8F0;
-    --border-highlight: #CBD5E1;
-    
-    --text-primary: #0F172A;
-    --text-secondary: #475569;
-    --text-muted: #94A3B8;
-    
-    --accent-teal: #0D9488;
-    --accent-teal-hover: #0F766E;
-    --accent-teal-soft: #CCFBF1;
-    --accent-teal-border: #99F6E4;
-    --accent-teal-glow: rgba(13, 148, 136, 0.2);
-    
-    --accent-amber: #D97706;
-    --accent-amber-soft: #FEF3C7;
-    --accent-amber-text: #92400E;
-    
-    --accent-red: #DC2626;
-    --accent-red-soft: #FEE2E2;
+      --accent-amber: #F59E0B;
+      --accent-amber-soft: rgba(245, 158, 11, 0.15);
+      --accent-amber-text: #FCD34D;
 
-    --shadow-card: 0 4px 16px rgba(15, 23, 42, 0.06);
-  }
+      --accent-red: #F87171;
+      --accent-red-soft: rgba(248, 113, 113, 0.15);
 
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: var(--bg-base);
-    font-family: var(--font-body);
-    color: var(--text-primary);
-    min-height: 100vh;
-    padding: 0 0 60px;
-    transition: background-color 0.25s ease, color 0.25s ease;
-  }
+      --font-display: 'Space Grotesk', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
 
-  /* Top Navigation Bar */
-  .topbar {
-    background: var(--bg-surface);
-    border-bottom: 1px solid var(--border-color);
-    padding: 14px 28px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    backdrop-filter: blur(12px);
-  }
-  .topbar-content {
-    max-width: 1280px;
-    margin: 0 auto;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-  }
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .brand-img-logo {
-    width: 38px;
-    height: 38px;
-    border-radius: var(--radius-sm);
-    object-fit: cover;
-    border: 1px solid var(--accent-teal-border);
-    box-shadow: 0 0 10px var(--accent-teal-glow);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-  .brand-img-logo:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 16px var(--accent-teal-glow);
-  }
-  .brand-title {
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 20px;
-    letter-spacing: -0.02em;
-    margin: 0;
-    color: var(--text-primary);
-  }
-  .brand-sub {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--accent-teal);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
 
-  .nav-tools {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .date-chip {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-color);
-    padding: 6px 12px;
-    border-radius: 20px;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .date-chip-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--accent-teal);
-    box-shadow: 0 0 6px var(--accent-teal);
-  }
-  .btn-icon-text {
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
-    border-radius: var(--radius-sm);
-    padding: 6px 12px;
-    font-size: 12px;
-    font-family: var(--font-body);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .btn-icon-text:hover {
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    border-color: var(--accent-teal);
-  }
+    [data-theme="light"] {
+      --bg-base: #F8FAFC;
+      --bg-surface: #FFFFFF;
+      --bg-surface-elevated: #F1F5F9;
+      --bg-input: #F8FAFC;
+      --border-color: #E2E8F0;
+      --border-highlight: #CBD5E1;
 
-  /* Main Container Layout */
-  .container {
-    max-width: 1280px;
-    margin: 24px auto 0;
-    padding: 0 20px;
-  }
-  .grid-layout {
-    display: grid;
-    grid-template-columns: 290px 1fr;
-    gap: 20px;
-    align-items: start;
-  }
-  @media (max-width: 900px) {
-    .grid-layout { grid-template-columns: 1fr; }
-  }
+      --text-primary: #0F172A;
+      --text-secondary: #475569;
+      --text-muted: #94A3B8;
 
-  /* Panel Styles */
-  .card-panel {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-card);
-    overflow: hidden;
-    transition: border-color 0.2s ease;
-  }
+      --accent-teal: #0D9488;
+      --accent-teal-hover: #0F766E;
+      --accent-teal-soft: #CCFBF1;
+      --accent-teal-border: #99F6E4;
+      --accent-teal-glow: rgba(13, 148, 136, 0.2);
 
-  /* Sidebar Roster */
-  .roster-header-bar {
-    padding: 14px 16px;
-    background: var(--bg-surface-elevated);
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .roster-title {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text-secondary);
-    margin: 0;
-  }
-  .counter-badge {
-    background: var(--accent-teal-soft);
-    color: var(--accent-teal);
-    border: 1px solid var(--accent-teal-border);
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 600;
-  }
+      --accent-amber: #D97706;
+      --accent-amber-soft: #FEF3C7;
+      --accent-amber-text: #92400E;
 
-  .roster-summary-bar {
-    display: flex;
-    gap: 4px;
-    padding: 8px 10px;
-    background: var(--bg-input);
-    border-bottom: 1px solid var(--border-color);
-    justify-content: space-between;
-  }
-  .roster-stat-pill {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    padding: 3px 6px;
-    border-radius: var(--radius-sm);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-weight: 500;
-  }
-  .roster-stat-pill.updated { background: var(--accent-teal-soft); color: var(--accent-teal); border: 1px solid var(--accent-teal-border); }
-  .roster-stat-pill.leave { background: var(--accent-amber-soft); color: var(--accent-amber-text); border: 1px solid rgba(245, 158, 11, 0.3); }
-  .roster-stat-pill.pending { background: var(--bg-surface-elevated); color: var(--text-muted); border: 1px solid var(--border-color); }
-  
-  .filter-box {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border-color);
-  }
-  .filter-box input {
-    width: 100%;
-    background: var(--bg-input);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    padding: 6px 10px;
-    font-size: 12px;
-    color: var(--text-primary);
-    outline: none;
-    font-family: var(--font-body);
-  }
-  .filter-box input:focus { border-color: var(--accent-teal); }
+      --accent-red: #DC2626;
+      --accent-red-soft: #FEE2E2;
 
-  .roster-scroll {
-    padding: 8px;
-    max-height: 540px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .member-row {
-    display: flex;
-    align-items: center;
-    padding: 8px 10px;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: all 0.15s ease;
-    border: 1px solid transparent;
-    user-select: none;
-  }
-  .member-row:hover {
-    background: var(--bg-surface-elevated);
-    border-color: var(--border-color);
-  }
-  .member-row.active {
-    background: var(--accent-teal-soft);
-    border-color: var(--accent-teal-border);
-    box-shadow: 0 0 12px var(--accent-teal-glow);
-  }
-  .avatar {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    margin-right: 10px;
-  }
-  .member-row.active .avatar {
-    background: var(--accent-teal);
-    color: #000;
-    border-color: var(--accent-teal);
-  }
-  .member-info {
-    flex: 1;
-    min-width: 0;
-  }
-  .member-name {
-    font-size: 13.5px;
-    font-weight: 500;
-    color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .status-pill {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-left: 6px;
-  }
-  .status-pill.updated { background: var(--accent-teal-soft); color: var(--accent-teal); border: 1px solid var(--accent-teal-border); }
-  .status-pill.leave { background: var(--accent-amber-soft); color: var(--accent-amber-text); border: 1px solid rgba(245, 158, 11, 0.3); }
-  .status-pill.pending { background: var(--bg-surface-elevated); color: var(--text-muted); border: 1px solid var(--border-color); }
+      --shadow-card: 0 4px 16px rgba(15, 23, 42, 0.06);
+    }
 
-  .row-actions {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    opacity: 0;
-    transition: opacity 0.15s ease;
-  }
-  .member-row:hover .row-actions { opacity: 1; }
-  .row-action-btn {
-    border: none;
-    background: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 12px;
-    padding: 2px 4px;
-    border-radius: 3px;
-  }
-  .row-action-btn:hover { color: var(--accent-teal); background: var(--bg-surface); }
-  .row-action-btn.delete:hover { color: var(--accent-red); }
+    * {
+      box-sizing: border-box;
+    }
 
-  .add-member-bar {
-    padding: 10px 12px;
-    border-top: 1px solid var(--border-color);
-    display: flex;
-    gap: 8px;
-    background: var(--bg-surface-elevated);
-  }
-  .add-member-bar input {
-    flex: 1;
-    background: var(--bg-input);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    padding: 7px 10px;
-    font-size: 12.5px;
-    color: var(--text-primary);
-    outline: none;
-  }
-  .add-member-bar input:focus { border-color: var(--accent-teal); }
-  .add-member-bar button {
-    background: var(--accent-teal);
-    color: #000;
-    border: none;
-    border-radius: var(--radius-sm);
-    padding: 0 14px;
-    font-size: 12.5px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s ease;
-  }
-  .add-member-bar button:hover { background: var(--accent-teal-hover); }
+    body {
+      margin: 0;
+      background: var(--bg-base);
+      font-family: var(--font-body);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 0 0 60px;
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
 
-  /* Main Workspace Editor */
-  .editor-workspace {
-    padding: 20px;
-  }
-  .editor-top-banner {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid var(--border-color);
-  }
-  .active-user-meta {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .user-avatar-lg {
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    background: var(--accent-teal-soft);
-    border: 2px solid var(--accent-teal);
-    color: var(--accent-teal);
-    font-family: var(--font-mono);
-    font-size: 16px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 0 10px var(--accent-teal-glow);
-  }
-  .user-title-box h2 {
-    font-family: var(--font-display);
-    font-size: 20px;
-    font-weight: 700;
-    margin: 0 0 2px;
-    color: var(--text-primary);
-  }
-  .user-status-tag {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--text-secondary);
-  }
+    /* Top Navigation Bar */
+    .topbar {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-color);
+      padding: 14px 28px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
 
-  .template-bar {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 14px;
-    flex-wrap: wrap;
-  }
-  .tmpl-btn {
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
-    padding: 6px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    font-family: var(--font-body);
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-  .tmpl-btn:hover { background: var(--bg-input); color: var(--text-primary); border-color: var(--accent-teal); }
-  .tmpl-btn.leave-active { background: var(--accent-amber-soft); color: var(--accent-amber-text); border-color: var(--accent-amber); font-weight: 600; }
+    .topbar-content {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
 
-  .split-edit-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-  @media (max-width: 700px) { .split-edit-grid { grid-template-columns: 1fr; } }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
 
-  .section-label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin: 0 0 6px;
-    display: flex;
-    justify-content: space-between;
-  }
+    .brand-img-logo {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-sm);
+      object-fit: cover;
+      border: 1px solid var(--accent-teal-border);
+      box-shadow: 0 0 10px var(--accent-teal-glow);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
 
-  textarea.md-editor {
-    width: 100%;
-    min-height: 220px;
-    background: var(--bg-input);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    padding: 12px 14px;
-    font-family: var(--font-mono);
-    font-size: 13px;
-    color: var(--text-primary);
-    resize: vertical;
-    outline: none;
-    line-height: 1.6;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  }
-  textarea.md-editor:focus {
-    border-color: var(--accent-teal);
-    box-shadow: 0 0 10px var(--accent-teal-glow);
-  }
-  textarea.md-editor:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
+    .brand-img-logo:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 16px var(--accent-teal-glow);
+    }
 
-  .preview-card {
-    background: var(--bg-input);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    padding: 12px 14px;
-    min-height: 220px;
-    font-size: 13.5px;
-    line-height: 1.6;
-    color: var(--text-primary);
-    overflow-wrap: anywhere;
-  }
-  .preview-card p { margin: 0 0 8px; }
-  .preview-card p:last-child { margin-bottom: 0; }
-  .preview-card ul, .preview-card ol { margin: 0 0 8px; padding-left: 20px; }
-  .preview-card strong { color: var(--accent-teal); font-weight: 600; }
-  .preview-card em { color: var(--accent-amber-text); }
+    .brand-title {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 20px;
+      letter-spacing: -0.02em;
+      margin: 0;
+      color: var(--text-primary);
+    }
 
-  .auto-save-indicator {
-    margin-top: 12px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--text-muted);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .auto-save-indicator .icon { color: var(--accent-teal); font-weight: 700; }
+    .brand-sub {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent-teal);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
 
-  /* Compiled Mail Section */
-  .mail-section-wrap {
-    margin-top: 24px;
-  }
-  .mail-header-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-  }
-  .mail-header-bar h2 {
-    font-family: var(--font-display);
-    font-size: 18px;
-    font-weight: 700;
-    margin: 0;
-    color: var(--text-primary);
-  }
+    .nav-tools {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
 
-  .mail-actions {
-    display: flex;
-    gap: 8px;
-  }
-  .btn-primary-copy {
-    background: var(--accent-teal);
-    color: #000;
-    border: none;
-    border-radius: var(--radius-sm);
-    padding: 8px 16px;
-    font-size: 13px;
-    font-family: var(--font-body);
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    box-shadow: 0 0 12px var(--accent-teal-glow);
-  }
-  .btn-primary-copy:hover { background: var(--accent-teal-hover); }
-  .btn-primary-copy.copied { background: #10B981; color: #fff; }
+    .date-chip {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-color);
+      padding: 6px 12px;
+      border-radius: 20px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
 
-  .mail-document-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    padding: 24px 28px;
-    font-size: 14px;
-    line-height: 1.7;
-    position: relative;
-    box-shadow: var(--shadow-card);
-  }
-  .mail-watermark-tag {
-    position: absolute;
-    top: 16px;
-    right: 20px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    color: var(--text-muted);
-    border: 1px solid var(--border-color);
-    padding: 3px 8px;
-    border-radius: 4px;
-    user-select: none;
-    pointer-events: none;
-  }
-  .mail-document-card p { margin: 0 0 12px; }
-  .mail-document-card .person-block-title {
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 15px;
-    color: var(--accent-teal);
-    margin-top: 18px;
-    margin-bottom: 4px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .mail-document-card .person-update-body p { margin: 4px 0 6px; }
-  .mail-document-card .person-update-body ul, .mail-document-card .person-update-body ol { margin: 4px 0 8px; padding-left: 20px; }
-  .mail-document-card ul, .mail-document-card ol { margin: 0 0 12px; padding-left: 22px; }
-  .mail-document-card strong { color: var(--accent-teal); }
+    .date-chip-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-teal);
+      box-shadow: 0 0 6px var(--accent-teal);
+    }
 
-  .status-footer-bar {
-    margin-top: 10px;
-    font-family: var(--font-mono);
-    font-size: 11.5px;
-    color: var(--text-secondary);
-    display: flex;
-    gap: 16px;
-  }
-  .status-footer-bar span { display: flex; align-items: center; gap: 6px; }
-</style>
+    .btn-icon-text {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+      font-size: 12px;
+      font-family: var(--font-body);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-icon-text:hover {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border-color: var(--accent-teal);
+    }
+
+    /* Main Container Layout */
+    .container {
+      max-width: 1280px;
+      margin: 24px auto 0;
+      padding: 0 20px;
+    }
+
+    .grid-layout {
+      display: grid;
+      grid-template-columns: 290px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .grid-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Panel Styles */
+    .card-panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      transition: border-color 0.2s ease;
+    }
+
+    /* Sidebar Roster */
+    .roster-header-bar {
+      padding: 14px 16px;
+      background: var(--bg-surface-elevated);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .roster-title {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    .counter-badge {
+      background: var(--accent-teal-soft);
+      color: var(--accent-teal);
+      border: 1px solid var(--accent-teal-border);
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .roster-summary-bar {
+      display: flex;
+      gap: 4px;
+      padding: 8px 10px;
+      background: var(--bg-input);
+      border-bottom: 1px solid var(--border-color);
+      justify-content: space-between;
+    }
+
+    .roster-stat-pill {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      padding: 3px 6px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-weight: 500;
+    }
+
+    .roster-stat-pill.updated {
+      background: var(--accent-teal-soft);
+      color: var(--accent-teal);
+      border: 1px solid var(--accent-teal-border);
+    }
+
+    .roster-stat-pill.leave {
+      background: var(--accent-amber-soft);
+      color: var(--accent-amber-text);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .roster-stat-pill.pending {
+      background: var(--bg-surface-elevated);
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+    }
+
+    .filter-box {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .filter-box input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      font-size: 12px;
+      color: var(--text-primary);
+      outline: none;
+      font-family: var(--font-body);
+    }
+
+    .filter-box input:focus {
+      border-color: var(--accent-teal);
+    }
+
+    .roster-scroll {
+      padding: 8px;
+      max-height: 540px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .member-row {
+      display: flex;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: 1px solid transparent;
+      user-select: none;
+    }
+
+    .member-row:hover {
+      background: var(--bg-surface-elevated);
+      border-color: var(--border-color);
+    }
+
+    .member-row.active {
+      background: var(--accent-teal-soft);
+      border-color: var(--accent-teal-border);
+      box-shadow: 0 0 12px var(--accent-teal-glow);
+    }
+
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-right: 10px;
+    }
+
+    .member-row.active .avatar {
+      background: var(--accent-teal);
+      color: #000;
+      border-color: var(--accent-teal);
+    }
+
+    .member-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .member-name {
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .status-pill {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-left: 6px;
+    }
+
+    .status-pill.updated {
+      background: var(--accent-teal-soft);
+      color: var(--accent-teal);
+      border: 1px solid var(--accent-teal-border);
+    }
+
+    .status-pill.leave {
+      background: var(--accent-amber-soft);
+      color: var(--accent-amber-text);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .status-pill.pending {
+      background: var(--bg-surface-elevated);
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+    }
+
+    .row-actions {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    .member-row:hover .row-actions {
+      opacity: 1;
+    }
+
+    .row-action-btn {
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+
+    .row-action-btn:hover {
+      color: var(--accent-teal);
+      background: var(--bg-surface);
+    }
+
+    .row-action-btn.delete:hover {
+      color: var(--accent-red);
+    }
+
+    .add-member-bar {
+      padding: 10px 12px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      gap: 8px;
+      background: var(--bg-surface-elevated);
+    }
+
+    .add-member-bar input {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 7px 10px;
+      font-size: 12.5px;
+      color: var(--text-primary);
+      outline: none;
+    }
+
+    .add-member-bar input:focus {
+      border-color: var(--accent-teal);
+    }
+
+    .add-member-bar button {
+      background: var(--accent-teal);
+      color: #000;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 0 14px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .add-member-bar button:hover {
+      background: var(--accent-teal-hover);
+    }
+
+    /* Main Workspace Editor */
+    .editor-workspace {
+      padding: 20px;
+    }
+
+    .editor-top-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .active-user-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-avatar-lg {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: var(--accent-teal-soft);
+      border: 2px solid var(--accent-teal);
+      color: var(--accent-teal);
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px var(--accent-teal-glow);
+    }
+
+    .user-title-box h2 {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0 0 2px;
+      color: var(--text-primary);
+    }
+
+    .user-status-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .template-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .tmpl-btn {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-family: var(--font-body);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .tmpl-btn:hover {
+      background: var(--bg-input);
+      color: var(--text-primary);
+      border-color: var(--accent-teal);
+    }
+
+    .tmpl-btn.leave-active {
+      background: var(--accent-amber-soft);
+      color: var(--accent-amber-text);
+      border-color: var(--accent-amber);
+      font-weight: 600;
+    }
+
+    .split-edit-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 700px) {
+      .split-edit-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin: 0 0 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    textarea.md-editor {
+      width: 100%;
+      min-height: 220px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-primary);
+      resize: vertical;
+      outline: none;
+      line-height: 1.6;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    textarea.md-editor:focus {
+      border-color: var(--accent-teal);
+      box-shadow: 0 0 10px var(--accent-teal-glow);
+    }
+
+    textarea.md-editor:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .preview-card {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      min-height: 220px;
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      overflow-wrap: anywhere;
+    }
+
+    .preview-card p {
+      margin: 0 0 8px;
+    }
+
+    .preview-card p:last-child {
+      margin-bottom: 0;
+    }
+
+    .preview-card ul,
+    .preview-card ol {
+      margin: 0 0 8px;
+      padding-left: 20px;
+    }
+
+    .preview-card strong {
+      color: var(--accent-teal);
+      font-weight: 600;
+    }
+
+    .preview-card em {
+      color: var(--accent-amber-text);
+    }
+
+    .auto-save-indicator {
+      margin-top: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .auto-save-indicator .icon {
+      color: var(--accent-teal);
+      font-weight: 700;
+    }
+
+    /* Compiled Mail Section */
+    .mail-section-wrap {
+      margin-top: 24px;
+    }
+
+    .mail-header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .mail-header-bar h2 {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 700;
+      margin: 0;
+      color: var(--text-primary);
+    }
+
+    .mail-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-primary-copy {
+      background: var(--accent-teal);
+      color: #000;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 8px 16px;
+      font-size: 13px;
+      font-family: var(--font-body);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 0 12px var(--accent-teal-glow);
+    }
+
+    .btn-primary-copy:hover {
+      background: var(--accent-teal-hover);
+    }
+
+    .btn-primary-copy.copied {
+      background: #10B981;
+      color: #fff;
+    }
+
+    .mail-document-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+      font-size: 14px;
+      line-height: 1.7;
+      position: relative;
+      box-shadow: var(--shadow-card);
+    }
+
+    .mail-watermark-tag {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+      padding: 3px 8px;
+      border-radius: 4px;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .mail-document-card p {
+      margin: 0 0 12px;
+    }
+
+    .mail-document-card .person-block-title {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--accent-teal);
+      margin-top: 18px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .mail-document-card .person-update-body p {
+      margin: 4px 0 6px;
+    }
+
+    .mail-document-card .person-update-body ul,
+    .mail-document-card .person-update-body ol {
+      margin: 4px 0 8px;
+      padding-left: 20px;
+    }
+
+    .mail-document-card ul,
+    .mail-document-card ol {
+      margin: 0 0 12px;
+      padding-left: 22px;
+    }
+
+    .mail-document-card strong {
+      color: var(--accent-teal);
+    }
+
+    .status-footer-bar {
+      margin-top: 10px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      display: flex;
+      gap: 16px;
+    }
+
+    .status-footer-bar span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+  </style>
 </head>
+
 <body>
 
-<!-- Topbar Navigation -->
-<header class="topbar">
-  <div class="topbar-content">
-    <div class="brand">
-      <img src="logo.jpg" alt="Watashiwa Tool Logo" class="brand-img-logo" />
-      <div>
-        <h1 class="brand-title">Watashiwa Tool</h1>
-        <div class="brand-sub">Standup Aggregator</div>
+  <!-- Topbar Navigation -->
+  <header class="topbar">
+    <div class="topbar-content">
+      <div class="brand">
+        <img src="logo.jpg" alt="Watashiwa Tool Logo" class="brand-img-logo" />
+        <div>
+          <h1 class="brand-title">Watashiwa Tool</h1>
+          <div class="brand-sub">Standup Aggregator</div>
+        </div>
+      </div>
+      <div class="nav-tools">
+        <div class="date-chip">
+          <span class="date-chip-dot"></span>
+          <span id="liveDateLabel"></span>
+        </div>
+        <button class="btn-icon-text" id="themeToggleBtn" title="Toggle Theme Mode">
+          <span id="themeIcon">🌙</span> <span id="themeText">Dark System</span>
+        </button>
+        <button class="btn-icon-text" id="resetTodayBtn" title="Reset Today's Updates">
+          <span>🔄</span> Reset Today
+        </button>
+        <button class="btn-icon-text" id="resetRosterBtn" title="Reset Roster to Default Names">
+          <span>👥</span> Reset Roster
+        </button>
       </div>
     </div>
-    <div class="nav-tools">
-      <div class="date-chip">
-        <span class="date-chip-dot"></span>
-        <span id="liveDateLabel"></span>
-      </div>
-      <button class="btn-icon-text" id="themeToggleBtn" title="Toggle Theme Mode">
-        <span id="themeIcon">🌙</span> <span id="themeText">Dark System</span>
-      </button>
-      <button class="btn-icon-text" id="resetTodayBtn" title="Reset Today's Updates">
-        <span>🔄</span> Reset Today
-      </button>
-    </div>
-  </div>
-</header>
+  </header>
 
-<!-- Main Container -->
-<div class="container">
-  <div class="grid-layout">
-    
-    <!-- Sidebar Team Roster -->
-    <div class="card-panel">
-      <div class="roster-header-bar">
-        <h3 class="roster-title">Team Roster</h3>
-        <span class="counter-badge" id="rosterCount">0 People</span>
-      </div>
-      <div class="roster-summary-bar">
-        <div class="roster-stat-pill updated" id="statUpdated">🟢 <strong>0</strong> Updated</div>
-        <div class="roster-stat-pill leave" id="statLeave">🟠 <strong>0</strong> On Leave</div>
-        <div class="roster-stat-pill pending" id="statPending">⚪ <strong>0</strong> Pending</div>
-      </div>
-      <div class="filter-box">
-        <input type="text" id="filterInput" placeholder="Filter roster by name…" />
-      </div>
-      <div class="roster-scroll" id="rosterList"></div>
-      <div class="add-member-bar">
-        <input type="text" id="newName" placeholder="Add team member…" />
-        <button id="addBtn">Add</button>
-      </div>
-      <div style="padding: 8px 10px; border-top: 1px solid var(--border-color);">
-        <button id="sortLeaveBtn" class="tmpl-btn" style="width:100%; text-align:center;">Send on-leave to bottom</button>
-      </div>
-    </div>
+  <!-- Main Container -->
+  <div class="container">
+    <div class="grid-layout">
 
-    <!-- Center Workspace & Mail Preview -->
-    <div>
-      
-      <!-- Standup Editor Panel -->
+      <!-- Sidebar Team Roster -->
       <div class="card-panel">
-        <div class="editor-workspace" id="editorWorkspace"></div>
+        <div class="roster-header-bar">
+          <h3 class="roster-title">Team Roster</h3>
+          <span class="counter-badge" id="rosterCount">0 People</span>
+        </div>
+        <div class="roster-summary-bar">
+          <div class="roster-stat-pill updated" id="statUpdated">🟢 <strong>0</strong> Updated</div>
+          <div class="roster-stat-pill leave" id="statLeave">🟠 <strong>0</strong> On Leave</div>
+          <div class="roster-stat-pill pending" id="statPending">⚪ <strong>0</strong> Pending</div>
+        </div>
+        <div class="filter-box">
+          <input type="text" id="filterInput" placeholder="Filter roster by name…" />
+        </div>
+        <div class="roster-scroll" id="rosterList"></div>
+        <div class="add-member-bar">
+          <input type="text" id="newName" placeholder="Add team member…" />
+          <button id="addBtn">Add</button>
+        </div>
+        <div style="padding: 8px 10px; border-top: 1px solid var(--border-color); display: flex; gap: 6px;">
+          <button id="sortAlphaBtn" class="tmpl-btn" style="flex:1; text-align:center;">Sort A-Z</button>
+          <button id="sortLeaveBtn" class="tmpl-btn" style="flex:1; text-align:center;">Leave to bottom</button>
+        </div>
       </div>
 
-      <!-- Compiled Email Section -->
-      <div class="mail-section-wrap">
-        <div class="mail-header-bar">
-          <h2>Compiled Daily Mail</h2>
-          <div class="mail-actions">
-            <button class="btn-primary-copy" id="copyBtn">
-              <span>📋</span> Copy Rich Text
-            </button>
+      <!-- Center Workspace & Mail Preview -->
+      <div>
+
+        <!-- Standup Editor Panel -->
+        <div class="card-panel">
+          <div class="editor-workspace" id="editorWorkspace"></div>
+        </div>
+
+        <!-- Compiled Email Section -->
+        <div class="mail-section-wrap">
+          <div class="mail-header-bar">
+            <h2>Compiled Daily Mail</h2>
+            <div class="mail-actions">
+              <button class="btn-primary-copy" id="copyBtn">
+                <span>📋</span> Copy Rich Text
+              </button>
+            </div>
           </div>
+          <div class="mail-document-card">
+            <div class="mail-watermark-tag">DRAFT — RENDERED</div>
+            <div id="mailDocContent"></div>
+          </div>
+          <div class="status-footer-bar" id="statusRow"></div>
         </div>
-        <div class="mail-document-card">
-          <div class="mail-watermark-tag">DRAFT — RENDERED</div>
-          <div id="mailDocContent"></div>
-        </div>
-        <div class="status-footer-bar" id="statusRow"></div>
+
       </div>
 
     </div>
-
   </div>
-</div>
 
-<script>
-// Local date formatting helper
-const todayKey = () => {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+  <script>
+    // Local date formatting helper
+    const todayKey = () => {
+      const d = new Date();
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
 
-const todayLabel = () => new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const todayLabel = () => new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-// Init Live Date Label
-document.getElementById('liveDateLabel').textContent = todayLabel();
+    // Init Live Date Label
+    document.getElementById('liveDateLabel').textContent = todayLabel();
 
-// Dual Storage Adapter
-const storageAdapter = {
-  async get(key) {
-    try {
-      if (window.storage && typeof window.storage.get === 'function') {
-        const res = await window.storage.get(key, false);
-        return res ? res.value : null;
+    // Dual Storage Adapter
+    const storageAdapter = {
+      async get(key) {
+        try {
+          if (window.storage && typeof window.storage.get === 'function') {
+            const res = await window.storage.get(key, false);
+            return res ? res.value : null;
+          }
+        } catch (e) { }
+        return localStorage.getItem(key);
+      },
+      async set(key, value) {
+        try {
+          if (window.storage && typeof window.storage.set === 'function') {
+            await window.storage.set(key, value, false);
+            return;
+          }
+        } catch (e) { }
+        localStorage.setItem(key, value);
       }
-    } catch (e) {}
-    return localStorage.getItem(key);
-  },
-  async set(key, value) {
-    try {
-      if (window.storage && typeof window.storage.set === 'function') {
-        await window.storage.set(key, value, false);
-        return;
+    };
+
+    let roster = [];
+    let updates = {};
+    let activeName = null;
+    let currentTheme = 'dark';
+    let filterQuery = '';
+
+    // Theme Handling
+    async function initTheme() {
+      const saved = await storageAdapter.get('theme');
+      currentTheme = saved || 'dark';
+      applyTheme(currentTheme);
+    }
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      const icon = document.getElementById('themeIcon');
+      const text = document.getElementById('themeText');
+      if (theme === 'dark') {
+        icon.textContent = '🌙';
+        text.textContent = 'Dark System';
+      } else {
+        icon.textContent = '☀️';
+        text.textContent = 'Light System';
       }
-    } catch (e) {}
-    localStorage.setItem(key, value);
-  }
-};
+    }
 
-let roster = [];
-let updates = {};
-let activeName = null;
-let currentTheme = 'dark';
-let filterQuery = '';
+    document.getElementById('themeToggleBtn').onclick = async () => {
+      currentTheme = (currentTheme === 'dark') ? 'light' : 'dark';
+      applyTheme(currentTheme);
+      await storageAdapter.set('theme', currentTheme);
+    };
 
-// Theme Handling
-async function initTheme() {
-  const saved = await storageAdapter.get('theme');
-  currentTheme = saved || 'dark';
-  applyTheme(currentTheme);
-}
+    function getInitials(name) {
+      if (!name) return '??';
+      const parts = name.trim().split(/\s+/);
+      if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+      return name.slice(0, 2).toUpperCase();
+    }
 
-function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  const icon = document.getElementById('themeIcon');
-  const text = document.getElementById('themeText');
-  if (theme === 'dark') {
-    icon.textContent = '🌙';
-    text.textContent = 'Dark System';
-  } else {
-    icon.textContent = '☀️';
-    text.textContent = 'Light System';
-  }
-}
+    function htmlToMarkdown(html) {
+      if (!html) return '';
+      try {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
 
-document.getElementById('themeToggleBtn').onclick = async () => {
-  currentTheme = (currentTheme === 'dark') ? 'light' : 'dark';
-  applyTheme(currentTheme);
-  await storageAdapter.set('theme', currentTheme);
-};
+        function parseNode(node) {
+          if (node.nodeType === Node.TEXT_NODE) {
+            return node.textContent;
+          }
+          if (node.nodeType !== Node.ELEMENT_NODE) return '';
 
-function getInitials(name) {
-  if (!name) return '??';
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
+          const tag = node.tagName.toLowerCase();
+          if (tag === 'script' || tag === 'style' || tag === 'meta') return '';
 
-function htmlToMarkdown(html) {
-  if (!html) return '';
-  try {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
+          let content = Array.from(node.childNodes).map(parseNode).join('');
 
-    function parseNode(node) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        return node.textContent;
-      }
-      if (node.nodeType !== Node.ELEMENT_NODE) return '';
+          const style = node.getAttribute('style') || '';
+          const isBold = tag === 'b' || tag === 'strong' || /font-weight\s*:\s*(bold|[6-9]00)/i.test(style);
+          const isItalic = tag === 'i' || tag === 'em' || /font-style\s*:\s*italic/i.test(style);
 
-      const tag = node.tagName.toLowerCase();
-      if (tag === 'script' || tag === 'style' || tag === 'meta') return '';
+          if (isBold) {
+            const trimmed = content.trim();
+            if (trimmed) {
+              const leadingSpace = (content.match(/^\s*/) || [''])[0];
+              const trailingSpace = (content.match(/\s*$/) || [''])[0];
+              content = `${leadingSpace}**${trimmed}**${trailingSpace}`;
+            }
+          } else if (isItalic) {
+            const trimmed = content.trim();
+            if (trimmed) {
+              content = `*${trimmed}*`;
+            }
+          }
 
-      let content = Array.from(node.childNodes).map(parseNode).join('');
+          if (tag === 'li') {
+            return `- ${content.trim()}\n`;
+          }
+          if (tag === 'p' || tag === 'div' || tag === 'tr' || tag === 'h1' || tag === 'h2' || tag === 'h3' || tag === 'h4') {
+            const trimmed = content.trim();
+            return trimmed ? `${trimmed}\n` : '';
+          }
+          if (tag === 'br') {
+            return '\n';
+          }
 
-      const style = node.getAttribute('style') || '';
-      const isBold = tag === 'b' || tag === 'strong' || /font-weight\s*:\s*(bold|[6-9]00)/i.test(style);
-      const isItalic = tag === 'i' || tag === 'em' || /font-style\s*:\s*italic/i.test(style);
-
-      if (isBold) {
-        const trimmed = content.trim();
-        if (trimmed) {
-          const leadingSpace = (content.match(/^\s*/) || [''])[0];
-          const trailingSpace = (content.match(/\s*$/) || [''])[0];
-          content = `${leadingSpace}**${trimmed}**${trailingSpace}`;
+          return content;
         }
-      } else if (isItalic) {
-        const trimmed = content.trim();
-        if (trimmed) {
-          content = `*${trimmed}*`;
+
+        let result = parseNode(doc.body);
+        result = result.replace(/\n{3,}/g, '\n\n').trim();
+        return result;
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function mdInline(text) {
+      if (!text) return '';
+      try {
+        if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+          return marked.parse(text);
         }
-      }
-
-      if (tag === 'li') {
-        return `- ${content.trim()}\n`;
-      }
-      if (tag === 'p' || tag === 'div' || tag === 'tr' || tag === 'h1' || tag === 'h2' || tag === 'h3' || tag === 'h4') {
-        const trimmed = content.trim();
-        return trimmed ? `${trimmed}\n` : '';
-      }
-      if (tag === 'br') {
-        return '\n';
-      }
-
-      return content;
-    }
-
-    let result = parseNode(doc.body);
-    result = result.replace(/\n{3,}/g, '\n\n').trim();
-    return result;
-  } catch (e) {
-    return '';
-  }
-}
-
-function mdInline(text) {
-  if (!text) return '';
-  try {
-    if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
-      return marked.parse(text);
-    }
-    return '<p>' + text.replace(/</g, '&lt;') + '</p>';
-  } catch(e) {
-    return '<p>' + text.replace(/</g, '&lt;') + '</p>';
-  }
-}
-
-async function loadState() {
-  await initTheme();
-
-  try {
-    const r = await storageAdapter.get('roster');
-    roster = r ? JSON.parse(r) : [];
-  } catch (e) { roster = []; }
-
-  if (!Array.isArray(roster) || roster.length === 0) {
-    roster = ['Alex Chen', 'Sarah Jenkins', 'Michael Rodriguez', 'Emily Davis', 'David Kim'];
-    await saveRoster();
-  }
-
-  const uKey = 'updates:' + todayKey();
-  try {
-    const u = await storageAdapter.get(uKey);
-    updates = u ? JSON.parse(u) : {};
-  } catch (e) { updates = {}; }
-
-  roster.forEach(n => { if (!updates[n]) updates[n] = { status: 'pending', text: '' }; });
-
-  activeName = roster[0] || null;
-  render();
-}
-
-async function saveRoster() {
-  try { await storageAdapter.set('roster', JSON.stringify(roster)); } catch (e) {}
-}
-
-async function saveUpdates() {
-  try { await storageAdapter.set('updates:' + todayKey(), JSON.stringify(updates)); } catch (e) {}
-}
-
-function render() {
-  renderRoster();
-  renderEditor();
-  renderMail();
-}
-
-document.getElementById('filterInput').oninput = (e) => {
-  filterQuery = e.target.value.toLowerCase().trim();
-  renderRoster();
-};
-
-function renderRoster() {
-  const countEl = document.getElementById('rosterCount');
-  countEl.textContent = roster.length + ' People';
-
-  const updatedCount = roster.filter(n => updates[n]?.status === 'updated').length;
-  const leaveCount = roster.filter(n => updates[n]?.status === 'leave').length;
-  const pendingCount = roster.length - updatedCount - leaveCount;
-
-  document.getElementById('statUpdated').innerHTML = `🟢 <strong>${updatedCount}</strong> Updated`;
-  document.getElementById('statLeave').innerHTML = `🟠 <strong>${leaveCount}</strong> On Leave`;
-  document.getElementById('statPending').innerHTML = `⚪ <strong>${pendingCount}</strong> Pending`;
-
-  const list = document.getElementById('rosterList');
-  list.innerHTML = '';
-
-  const filtered = roster.filter(n => n.toLowerCase().includes(filterQuery));
-
-  filtered.forEach(name => {
-    const st = updates[name]?.status || 'pending';
-    const row = document.createElement('div');
-    row.className = 'member-row' + (name === activeName ? ' active' : '');
-
-    const avatar = document.createElement('div');
-    avatar.className = 'avatar';
-    avatar.textContent = getInitials(name);
-
-    const info = document.createElement('div');
-    info.className = 'member-info';
-    
-    const nameEl = document.createElement('div');
-    nameEl.className = 'member-name';
-    nameEl.textContent = name;
-    info.appendChild(nameEl);
-
-    const pill = document.createElement('span');
-    pill.className = `status-pill ${st}`;
-    pill.textContent = st === 'updated' ? 'Updated' : st === 'leave' ? 'On Leave' : 'Pending';
-
-    row.onclick = () => { activeName = name; render(); };
-    row.ondblclick = () => startRename(row, name);
-
-    const actions = document.createElement('div');
-    actions.className = 'row-actions';
-
-    const idx = roster.indexOf(name);
-    const upBtn = document.createElement('button');
-    upBtn.className = 'row-action-btn';
-    upBtn.textContent = '▲';
-    upBtn.title = 'Move up';
-    upBtn.disabled = idx === 0;
-    upBtn.onclick = async (e) => {
-      e.stopPropagation();
-      if (idx > 0) {
-        [roster[idx - 1], roster[idx]] = [roster[idx], roster[idx - 1]];
-        await saveRoster();
-        render();
-      }
-    };
-
-    const downBtn = document.createElement('button');
-    downBtn.className = 'row-action-btn';
-    downBtn.textContent = '▼';
-    downBtn.title = 'Move down';
-    downBtn.disabled = idx === roster.length - 1;
-    downBtn.onclick = async (e) => {
-      e.stopPropagation();
-      if (idx < roster.length - 1) {
-        [roster[idx + 1], roster[idx]] = [roster[idx], roster[idx + 1]];
-        await saveRoster();
-        render();
-      }
-    };
-
-    const delBtn = document.createElement('button');
-    delBtn.className = 'row-action-btn delete';
-    delBtn.textContent = '✕';
-    delBtn.title = 'Remove member';
-    delBtn.onclick = async (e) => {
-      e.stopPropagation();
-      if (!confirm(`Remove ${name} from the team roster?`)) return;
-      roster = roster.filter(n => n !== name);
-      delete updates[name];
-      if (activeName === name) activeName = roster[0] || null;
-      await saveRoster();
-      await saveUpdates();
-      render();
-    };
-
-    actions.appendChild(upBtn);
-    actions.appendChild(downBtn);
-    actions.appendChild(delBtn);
-
-    row.appendChild(avatar);
-    row.appendChild(info);
-    row.appendChild(pill);
-    row.appendChild(actions);
-    list.appendChild(row);
-  });
-}
-
-function startRename(row, oldName) {
-  row.innerHTML = '';
-  const input = document.createElement('input');
-  input.className = 'add-member-bar input';
-  input.style.width = '100%';
-  input.value = oldName;
-  row.appendChild(input);
-  input.focus();
-  input.select();
-
-  let isDone = false;
-  const commit = async () => {
-    if (isDone) return;
-    isDone = true;
-    const newName = input.value.trim();
-    if (newName && newName !== oldName) {
-      if (roster.includes(newName)) {
-        alert(`"${newName}" is already in the roster.`);
-        render();
-        return;
-      }
-      const idx = roster.indexOf(oldName);
-      if (idx !== -1) {
-        roster[idx] = newName;
-        updates[newName] = updates[oldName];
-        delete updates[oldName];
-        if (activeName === oldName) activeName = newName;
-        await saveRoster();
-        await saveUpdates();
+        return '<p>' + text.replace(/</g, '&lt;') + '</p>';
+      } catch (e) {
+        return '<p>' + text.replace(/</g, '&lt;') + '</p>';
       }
     }
-    render();
-  };
 
-  input.onblur = commit;
-  input.onkeydown = (e) => {
-    if (e.key === 'Enter') {
-      commit();
-    } else if (e.key === 'Escape') {
-      isDone = true;
-      input.onblur = null;
+    async function loadState() {
+      await initTheme();
+
+      try {
+        const r = await storageAdapter.get('roster');
+        roster = r ? JSON.parse(r) : [];
+      } catch (e) { roster = []; }
+
+      const defaultTeam = ['Abhishek K', 'Aishwarya Kokate', 'Anusha Hadimani', 'Anushka Gupta', 'Dhruba Seal', 'Eshwari S', 'Komal Singh', 'Kusuma BR', 'Manjunath KG', 'Nikhil Saini', 'Pooja TB', 'Priyanka S', 'Sumit Singh', 'Varun Methwani', 'Vedant Patil'];
+
+      if (!Array.isArray(roster) || roster.length === 0 || roster.some(n => typeof n === 'string' && /^member/i.test(n.trim()))) {
+        roster = [...defaultTeam];
+        await saveRoster();
+      } else {
+        roster.sort((a, b) => a.localeCompare(b));
+        await saveRoster();
+      }
+
+      const uKey = 'updates:' + todayKey();
+      try {
+        const u = await storageAdapter.get(uKey);
+        updates = u ? JSON.parse(u) : {};
+      } catch (e) { updates = {}; }
+
+      roster.forEach(n => { if (!updates[n]) updates[n] = { status: 'pending', text: '' }; });
+
+      activeName = roster[0] || null;
       render();
     }
-  };
-}
 
-function renderEditor() {
-  const workspace = document.getElementById('editorWorkspace');
-  if (!activeName) {
-    workspace.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 40px;">Select or add a team member to edit their standup update.</div>';
-    return;
-  }
+    async function saveRoster() {
+      try { await storageAdapter.set('roster', JSON.stringify(roster)); } catch (e) { }
+    }
 
-  const entry = updates[activeName] || { status: 'pending', text: '' };
+    async function saveUpdates() {
+      try { await storageAdapter.set('updates:' + todayKey(), JSON.stringify(updates)); } catch (e) { }
+    }
 
-  workspace.innerHTML = `
+    function render() {
+      renderRoster();
+      renderEditor();
+      renderMail();
+    }
+
+    document.getElementById('filterInput').oninput = (e) => {
+      filterQuery = e.target.value.toLowerCase().trim();
+      renderRoster();
+    };
+
+    function renderRoster() {
+      const countEl = document.getElementById('rosterCount');
+      countEl.textContent = roster.length + ' People';
+
+      const updatedCount = roster.filter(n => updates[n]?.status === 'updated').length;
+      const leaveCount = roster.filter(n => updates[n]?.status === 'leave').length;
+      const pendingCount = roster.length - updatedCount - leaveCount;
+
+      document.getElementById('statUpdated').innerHTML = `🟢 <strong>${updatedCount}</strong> Updated`;
+      document.getElementById('statLeave').innerHTML = `🟠 <strong>${leaveCount}</strong> On Leave`;
+      document.getElementById('statPending').innerHTML = `⚪ <strong>${pendingCount}</strong> Pending`;
+
+      const list = document.getElementById('rosterList');
+      list.innerHTML = '';
+
+      const filtered = roster.filter(n => n.toLowerCase().includes(filterQuery));
+
+      filtered.forEach(name => {
+        const st = updates[name]?.status || 'pending';
+        const row = document.createElement('div');
+        row.className = 'member-row' + (name === activeName ? ' active' : '');
+
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.textContent = getInitials(name);
+
+        const info = document.createElement('div');
+        info.className = 'member-info';
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'member-name';
+        nameEl.textContent = name;
+        info.appendChild(nameEl);
+
+        const pill = document.createElement('span');
+        pill.className = `status-pill ${st}`;
+        pill.textContent = st === 'updated' ? 'Updated' : st === 'leave' ? 'On Leave' : 'Pending';
+
+        row.onclick = () => { activeName = name; render(); };
+        row.ondblclick = () => startRename(row, name);
+
+        const actions = document.createElement('div');
+        actions.className = 'row-actions';
+
+        const idx = roster.indexOf(name);
+        const upBtn = document.createElement('button');
+        upBtn.className = 'row-action-btn';
+        upBtn.textContent = '▲';
+        upBtn.title = 'Move up';
+        upBtn.disabled = idx === 0;
+        upBtn.onclick = async (e) => {
+          e.stopPropagation();
+          if (idx > 0) {
+            [roster[idx - 1], roster[idx]] = [roster[idx], roster[idx - 1]];
+            await saveRoster();
+            render();
+          }
+        };
+
+        const downBtn = document.createElement('button');
+        downBtn.className = 'row-action-btn';
+        downBtn.textContent = '▼';
+        downBtn.title = 'Move down';
+        downBtn.disabled = idx === roster.length - 1;
+        downBtn.onclick = async (e) => {
+          e.stopPropagation();
+          if (idx < roster.length - 1) {
+            [roster[idx + 1], roster[idx]] = [roster[idx], roster[idx + 1]];
+            await saveRoster();
+            render();
+          }
+        };
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'row-action-btn delete';
+        delBtn.textContent = '✕';
+        delBtn.title = 'Remove member';
+        delBtn.onclick = async (e) => {
+          e.stopPropagation();
+          if (!confirm(`Remove ${name} from the team roster?`)) return;
+          roster = roster.filter(n => n !== name);
+          delete updates[name];
+          if (activeName === name) activeName = roster[0] || null;
+          await saveRoster();
+          await saveUpdates();
+          render();
+        };
+
+        actions.appendChild(upBtn);
+        actions.appendChild(downBtn);
+        actions.appendChild(delBtn);
+
+        row.appendChild(avatar);
+        row.appendChild(info);
+        row.appendChild(pill);
+        row.appendChild(actions);
+        list.appendChild(row);
+      });
+    }
+
+    function startRename(row, oldName) {
+      row.innerHTML = '';
+      const input = document.createElement('input');
+      input.className = 'add-member-bar input';
+      input.style.width = '100%';
+      input.value = oldName;
+      row.appendChild(input);
+      input.focus();
+      input.select();
+
+      let isDone = false;
+      const commit = async () => {
+        if (isDone) return;
+        isDone = true;
+        const newName = input.value.trim();
+        if (newName && newName !== oldName) {
+          if (roster.includes(newName)) {
+            alert(`"${newName}" is already in the roster.`);
+            render();
+            return;
+          }
+          const idx = roster.indexOf(oldName);
+          if (idx !== -1) {
+            roster[idx] = newName;
+            updates[newName] = updates[oldName];
+            delete updates[oldName];
+            if (activeName === oldName) activeName = newName;
+            await saveRoster();
+            await saveUpdates();
+          }
+        }
+        render();
+      };
+
+      input.onblur = commit;
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+          commit();
+        } else if (e.key === 'Escape') {
+          isDone = true;
+          input.onblur = null;
+          render();
+        }
+      };
+    }
+
+    function renderEditor() {
+      const workspace = document.getElementById('editorWorkspace');
+      if (!activeName) {
+        workspace.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 40px;">Select or add a team member to edit their standup update.</div>';
+        return;
+      }
+
+      const entry = updates[activeName] || { status: 'pending', text: '' };
+
+      workspace.innerHTML = `
     <div class="editor-top-banner">
       <div class="active-user-meta">
         <div class="user-avatar-lg">${getInitials(activeName)}</div>
@@ -1087,182 +1263,199 @@ function renderEditor() {
     <div class="auto-save-indicator"><span class="icon">✓</span> Saved automatically to persistent storage.</div>
   `;
 
-  const previewCard = document.getElementById('previewCard');
-  previewCard.innerHTML = entry.status === 'leave' ? '<p><em>On leave today (OOTO).</em></p>' : mdInline(entry.text || '*No update entered yet*');
+      const previewCard = document.getElementById('previewCard');
+      previewCard.innerHTML = entry.status === 'leave' ? '<p><em>On leave today (OOTO).</em></p>' : mdInline(entry.text || '*No update entered yet*');
 
-  document.getElementById('tmplFullBtn').onclick = () => {
-    if (entry.status === 'leave') return;
-    const template = `- Yesterday: Completed task deliverables.\n- Today: Working on features and testing.\n- Blockers: None.`;
-    entry.text = entry.text ? (entry.text + '\n' + template) : template;
-    entry.status = 'updated';
-    render();
-    saveUpdates();
-  };
+      document.getElementById('tmplFullBtn').onclick = () => {
+        if (entry.status === 'leave') return;
+        const template = `- Yesterday: Completed task deliverables.\n- Today: Working on features and testing.\n- Blockers: None.`;
+        entry.text = entry.text ? (entry.text + '\n' + template) : template;
+        entry.status = 'updated';
+        render();
+        saveUpdates();
+      };
 
-  document.getElementById('leaveToggleBtn').onclick = async () => {
-    entry.status = (entry.status === 'leave') ? (entry.text ? 'updated' : 'pending') : 'leave';
-    await saveUpdates();
-    render();
-  };
+      document.getElementById('leaveToggleBtn').onclick = async () => {
+        entry.status = (entry.status === 'leave') ? (entry.text ? 'updated' : 'pending') : 'leave';
+        await saveUpdates();
+        render();
+      };
 
-  document.getElementById('clearUpdateBtn').onclick = async () => {
-    entry.status = 'pending';
-    entry.text = '';
-    await saveUpdates();
-    render();
-  };
+      document.getElementById('clearUpdateBtn').onclick = async () => {
+        entry.status = 'pending';
+        entry.text = '';
+        await saveUpdates();
+        render();
+      };
 
-  const ta = document.getElementById('updateText');
-  if (ta) {
-    ta.onpaste = (e) => {
-      const htmlData = e.clipboardData ? e.clipboardData.getData('text/html') : '';
-      if (htmlData && (htmlData.includes('<b>') || htmlData.includes('<strong>') || htmlData.includes('font-weight') || htmlData.includes('<li>'))) {
-        e.preventDefault();
-        const md = htmlToMarkdown(htmlData);
-        if (md) {
-          const start = ta.selectionStart;
-          const end = ta.selectionEnd;
-          const val = ta.value;
-          ta.value = val.substring(0, start) + md + val.substring(end);
-          ta.selectionStart = ta.selectionEnd = start + md.length;
+      const ta = document.getElementById('updateText');
+      if (ta) {
+        ta.onpaste = (e) => {
+          const htmlData = e.clipboardData ? e.clipboardData.getData('text/html') : '';
+          if (htmlData && (htmlData.includes('<b>') || htmlData.includes('<strong>') || htmlData.includes('font-weight') || htmlData.includes('<li>'))) {
+            e.preventDefault();
+            const md = htmlToMarkdown(htmlData);
+            if (md) {
+              const start = ta.selectionStart;
+              const end = ta.selectionEnd;
+              const val = ta.value;
+              ta.value = val.substring(0, start) + md + val.substring(end);
+              ta.selectionStart = ta.selectionEnd = start + md.length;
+              entry.text = ta.value;
+              entry.status = ta.value.trim() ? 'updated' : 'pending';
+              previewCard.innerHTML = mdInline(entry.text || '*No update entered yet*');
+              renderRosterPillsOnly();
+              saveUpdates();
+              return;
+            }
+          }
+        };
+        ta.oninput = () => {
           entry.text = ta.value;
           entry.status = ta.value.trim() ? 'updated' : 'pending';
           previewCard.innerHTML = mdInline(entry.text || '*No update entered yet*');
           renderRosterPillsOnly();
-          saveUpdates();
-          return;
+        };
+        ta.onblur = async () => { await saveUpdates(); renderRoster(); };
+      }
+    }
+
+    function renderRosterPillsOnly() {
+      const entry = updates[activeName];
+      if (!entry) return;
+      document.querySelectorAll('.member-row').forEach(row => {
+        const nameEl = row.querySelector('.member-name');
+        if (nameEl && nameEl.textContent === activeName) {
+          const pill = row.querySelector('.status-pill');
+          if (pill) {
+            pill.className = `status-pill ${entry.status}`;
+            pill.textContent = entry.status === 'updated' ? 'Updated' : entry.status === 'leave' ? 'On Leave' : 'Pending';
+          }
         }
-      }
-    };
-    ta.oninput = () => {
-      entry.text = ta.value;
-      entry.status = ta.value.trim() ? 'updated' : 'pending';
-      previewCard.innerHTML = mdInline(entry.text || '*No update entered yet*');
-      renderRosterPillsOnly();
-    };
-    ta.onblur = async () => { await saveUpdates(); renderRoster(); };
-  }
-}
+      });
 
-function renderRosterPillsOnly() {
-  const entry = updates[activeName];
-  if (!entry) return;
-  document.querySelectorAll('.member-row').forEach(row => {
-    const nameEl = row.querySelector('.member-name');
-    if (nameEl && nameEl.textContent === activeName) {
-      const pill = row.querySelector('.status-pill');
-      if (pill) {
-        pill.className = `status-pill ${entry.status}`;
-        pill.textContent = entry.status === 'updated' ? 'Updated' : entry.status === 'leave' ? 'On Leave' : 'Pending';
-      }
+      const updatedCount = roster.filter(n => updates[n]?.status === 'updated').length;
+      const leaveCount = roster.filter(n => updates[n]?.status === 'leave').length;
+      const pendingCount = roster.length - updatedCount - leaveCount;
+
+      document.getElementById('statUpdated').innerHTML = `🟢 <strong>${updatedCount}</strong> Updated`;
+      document.getElementById('statLeave').innerHTML = `🟠 <strong>${leaveCount}</strong> On Leave`;
+      document.getElementById('statPending').innerHTML = `⚪ <strong>${pendingCount}</strong> Pending`;
     }
-  });
 
-  const updatedCount = roster.filter(n => updates[n]?.status === 'updated').length;
-  const leaveCount = roster.filter(n => updates[n]?.status === 'leave').length;
-  const pendingCount = roster.length - updatedCount - leaveCount;
+    function renderMail() {
+      const mailContent = document.getElementById('mailDocContent');
+      let html = `<p><strong>Subject:</strong> Daily Standup Update — ${todayLabel()}</p>`;
+      html += `<p>Hi team,</p><p>Please find below the summary of today's standup updates:</p>`;
 
-  document.getElementById('statUpdated').innerHTML = `🟢 <strong>${updatedCount}</strong> Updated`;
-  document.getElementById('statLeave').innerHTML = `🟠 <strong>${leaveCount}</strong> On Leave`;
-  document.getElementById('statPending').innerHTML = `⚪ <strong>${pendingCount}</strong> Pending`;
-}
+      roster.forEach(name => {
+        const entry = updates[name] || { status: 'pending', text: '' };
+        html += `<div class="person-block-title"><span>${name}</span></div>`;
+        html += `<div class="person-update-body" style="margin-left: 18px; padding-left: 12px; border-left: 2px solid rgba(45, 212, 191, 0.35); margin-bottom: 14px;">`;
+        if (entry.status === 'leave') {
+          html += `<p style="margin: 4px 0;"><em>On leave today (OOTO).</em></p>`;
+        } else if (entry.text && entry.text.trim()) {
+          html += mdInline(entry.text.trim());
+        } else {
+          html += `<p style="margin: 4px 0;"><em>No update submitted yet.</em></p>`;
+        }
+        html += `</div>`;
+      });
 
-function renderMail() {
-  const mailContent = document.getElementById('mailDocContent');
-  let html = `<p><strong>Subject:</strong> Daily Standup Update — ${todayLabel()}</p>`;
-  html += `<p>Hi team,</p><p>Here are today's standup updates across the engineering and product team:</p>`;
+      html += `<p style="margin-top: 20px;">Thank you,<br/><strong>Sumit Singh</strong></p>`;
+      mailContent.innerHTML = html;
 
-  roster.forEach(name => {
-    const entry = updates[name] || { status: 'pending', text: '' };
-    html += `<div class="person-block-title"><span>${name}</span></div>`;
-    html += `<div class="person-update-body" style="margin-left: 18px; padding-left: 12px; border-left: 2px solid rgba(45, 212, 191, 0.35); margin-bottom: 14px;">`;
-    if (entry.status === 'leave') {
-      html += `<p style="margin: 4px 0;"><em>On leave today (OOTO).</em></p>`;
-    } else if (entry.text && entry.text.trim()) {
-      html += mdInline(entry.text.trim());
-    } else {
-      html += `<p style="margin: 4px 0;"><em>No update submitted yet.</em></p>`;
-    }
-    html += `</div>`;
-  });
+      const updated = roster.filter(n => updates[n]?.status === 'updated').length;
+      const leave = roster.filter(n => updates[n]?.status === 'leave').length;
+      const pending = roster.length - updated - leave;
 
-  html += `<p style="margin-top: 20px;">Thanks,<br/><strong>Standup Collector Bot</strong></p>`;
-  mailContent.innerHTML = html;
-
-  const updated = roster.filter(n => updates[n]?.status === 'updated').length;
-  const leave = roster.filter(n => updates[n]?.status === 'leave').length;
-  const pending = roster.length - updated - leave;
-
-  document.getElementById('statusRow').innerHTML = `
+      document.getElementById('statusRow').innerHTML = `
     <span>🟢 <strong>${updated}</strong> Updated</span>
     <span>🟠 <strong>${leave}</strong> On Leave</span>
     <span>⚪ <strong>${pending}</strong> Pending</span>
   `;
-}
-
-document.getElementById('addBtn').onclick = async () => {
-  const input = document.getElementById('newName');
-  const name = input.value.trim();
-  if (!name) return;
-  if (roster.includes(name)) {
-    alert(`"${name}" is already in the roster.`);
-    return;
-  }
-  roster.push(name);
-  updates[name] = { status: 'pending', text: '' };
-  input.value = '';
-  activeName = name;
-  await saveRoster();
-  await saveUpdates();
-  render();
-};
-document.getElementById('newName').onkeydown = (e) => { if (e.key === 'Enter') document.getElementById('addBtn').click(); };
-
-document.getElementById('sortLeaveBtn').onclick = async () => {
-  const notLeave = roster.filter(n => updates[n]?.status !== 'leave');
-  const onLeave = roster.filter(n => updates[n]?.status === 'leave');
-  roster = [...notLeave, ...onLeave];
-  await saveRoster();
-  render();
-};
-
-document.getElementById('resetTodayBtn').onclick = async () => {
-  if (!confirm("Are you sure you want to reset all team updates for today?")) return;
-  roster.forEach(n => {
-    updates[n] = { status: 'pending', text: '' };
-  });
-  await saveUpdates();
-  render();
-};
-
-document.getElementById('copyBtn').onclick = async () => {
-  const mailContent = document.getElementById('mailDocContent');
-  const html = mailContent.innerHTML;
-  const text = mailContent.innerText;
-  const btn = document.getElementById('copyBtn');
-  const original = btn.innerHTML;
-
-  try {
-    const item = new ClipboardItem({
-      'text/html': new Blob([html], {type: 'text/html'}),
-      'text/plain': new Blob([text], {type: 'text/plain'})
-    });
-    await navigator.clipboard.write([item]);
-    btn.innerHTML = '<span>✓</span> Copied Rich Text';
-  } catch (e) {
-    try {
-      await navigator.clipboard.writeText(text);
-      btn.innerHTML = '<span>✓</span> Copied Plain Text';
-    } catch (e2) {
-      alert('Could not copy automatically — select the text box and copy manually.');
-      return;
     }
-  }
-  btn.classList.add('copied');
-  setTimeout(() => { btn.innerHTML = original; btn.classList.remove('copied'); }, 1800);
-};
 
-loadState();
-</script>
+    document.getElementById('addBtn').onclick = async () => {
+      const input = document.getElementById('newName');
+      const name = input.value.trim();
+      if (!name) return;
+      if (roster.includes(name)) {
+        alert(`"${name}" is already in the roster.`);
+        return;
+      }
+      roster.push(name);
+      updates[name] = { status: 'pending', text: '' };
+      input.value = '';
+      activeName = name;
+      await saveRoster();
+      await saveUpdates();
+      render();
+    };
+    document.getElementById('newName').onkeydown = (e) => { if (e.key === 'Enter') document.getElementById('addBtn').click(); };
+
+    document.getElementById('sortAlphaBtn').onclick = async () => {
+      roster.sort((a, b) => a.localeCompare(b));
+      await saveRoster();
+      render();
+    };
+
+    document.getElementById('sortLeaveBtn').onclick = async () => {
+      const notLeave = roster.filter(n => updates[n]?.status !== 'leave');
+      const onLeave = roster.filter(n => updates[n]?.status === 'leave');
+      roster = [...notLeave, ...onLeave];
+      await saveRoster();
+      render();
+    };
+
+    document.getElementById('resetTodayBtn').onclick = async () => {
+      if (!confirm("Are you sure you want to reset all team updates for today?")) return;
+      roster.forEach(n => {
+        updates[n] = { status: 'pending', text: '' };
+      });
+      await saveUpdates();
+      render();
+    };
+
+    document.getElementById('resetRosterBtn').onclick = async () => {
+      if (!confirm("Reset team roster back to default team members in alphabetical order?")) return;
+      roster = ['Abhishek K', 'Aishwarya Kokate', 'Anusha Hadimani', 'Anushka Gupta', 'Dhruba Seal', 'Eshwari S', 'Komal Singh', 'Kusuma BR', 'Manjunath KG', 'Nikhil Saini', 'Pooja TB', 'Priyanka S', 'Sumit Singh', 'Varun Methwani', 'Vedant Patil'];
+      roster.forEach(n => { if (!updates[n]) updates[n] = { status: 'pending', text: '' }; });
+      activeName = roster[0] || null;
+      await saveRoster();
+      await saveUpdates();
+      render();
+    };
+
+    document.getElementById('copyBtn').onclick = async () => {
+      const mailContent = document.getElementById('mailDocContent');
+      const html = mailContent.innerHTML;
+      const text = mailContent.innerText;
+      const btn = document.getElementById('copyBtn');
+      const original = btn.innerHTML;
+
+      try {
+        const item = new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([text], { type: 'text/plain' })
+        });
+        await navigator.clipboard.write([item]);
+        btn.innerHTML = '<span>✓</span> Copied Rich Text';
+      } catch (e) {
+        try {
+          await navigator.clipboard.writeText(text);
+          btn.innerHTML = '<span>✓</span> Copied Plain Text';
+        } catch (e2) {
+          alert('Could not copy automatically — select the text box and copy manually.');
+          return;
+        }
+      }
+      btn.classList.add('copied');
+      setTimeout(() => { btn.innerHTML = original; btn.classList.remove('copied'); }, 1800);
+    };
+
+    loadState();
+  </script>
 </body>
+
 </html>
