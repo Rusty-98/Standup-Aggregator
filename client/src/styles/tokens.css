@@ -1,0 +1,288 @@
+/* ==========================================================================
+   SyncPulse — Design Tokens (Anti-Slop Utilitarian)
+   Aesthetic: Rationalism, Industrial Clarity, Extreme Density
+   Rules: Solid flat colors only. No gradients, shadows, blurs, or glow.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* Default to Dark Mode */
+  --canvas: #0B0D10;
+  --surface-1: #121519;
+  --surface-2: #181C22;
+  --surface-3: #23272E;
+
+  --border-default: #23272E;
+  --border-strong: #33383F;
+
+  --text-primary: #EDEEF0;
+  --text-muted: #8B9099;
+
+  --accent: #4C7DF0;
+  --accent-hover: #3b6cd9;
+  --accent-text: #FFFFFF;
+
+  --semantic-ok: #3E9C6D;
+  --semantic-warning: #C98A28;
+  --semantic-danger: #D0524B;
+
+  --kbd-bg: #181C22;
+  --kbd-border: #33383F;
+  --kbd-text: #8B9099;
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Radius */
+  --radius-control: 6px;
+  --radius-card: 10px;
+  --radius-badge: 4px;
+  --radius-full: 9999px;
+
+  /* Control Heights */
+  --height-control: 36px;
+  --height-control-compact: 28px;
+  --height-badge: 20px;
+  --height-kbd: 18px;
+}
+
+[data-theme="light"] {
+  --canvas: #FBFBFA;
+  --surface-1: #FFFFFF;
+  --surface-2: #F3F3F1;
+  --surface-3: #E4E4E2;
+
+  --border-default: #E4E4E2;
+  --border-strong: #CFCFCC;
+
+  --text-primary: #17191C;
+  --text-muted: #6B6F76;
+
+  --accent: #2C5CE0;
+  --accent-hover: #1f4cb8;
+  --accent-text: #FFFFFF;
+
+  --semantic-ok: #2E7D57;
+  --semantic-warning: #A56B15;
+  --semantic-danger: #B5392F;
+
+  --kbd-bg: #F3F3F1;
+  --kbd-border: #CFCFCC;
+  --kbd-text: #6B6F76;
+}
+
+/* Base Reset & Core Rules */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background-color: var(--canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+/* Mono tabular numbers everywhere for counters and telemetry */
+.tabular-nums, .mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Keyboard focus - strictly outline with no blur glow */
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Utilitarian Button Styles */
+button, .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--height-control);
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  transition: background-color 0.1s ease, border-color 0.1s ease;
+  user-select: none;
+  text-decoration: none;
+}
+
+button:disabled, .btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-text);
+  border: 1px solid transparent;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+.btn-compact {
+  height: var(--height-control-compact);
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.btn-danger {
+  background: transparent;
+  border: 1px solid var(--semantic-danger);
+  color: var(--semantic-danger);
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--semantic-danger);
+  color: #FFFFFF;
+}
+
+/* Inputs & Form Controls */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="date"],
+select {
+  height: var(--height-control);
+  padding: 0 10px;
+  background: var(--canvas);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-control);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  outline: none;
+}
+
+input:focus, select:focus {
+  border-color: var(--accent);
+}
+
+input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Cards & Ledger Containers */
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-card);
+  padding: 16px;
+}
+
+/* Unified Data Ledger (merged 1px borders) */
+.ledger-list {
+  display: flex;
+  flex-direction: column;
+}
+.ledger-row {
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  margin-top: -1px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.ledger-row:first-child {
+  margin-top: 0;
+  border-top-left-radius: var(--radius-card);
+  border-top-right-radius: var(--radius-card);
+}
+.ledger-row:last-child {
+  border-bottom-left-radius: var(--radius-card);
+  border-bottom-right-radius: var(--radius-card);
+}
+.ledger-row:hover {
+  background: var(--surface-2);
+}
+
+/* Keycaps */
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--height-kbd);
+  min-width: var(--height-kbd);
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--kbd-bg);
+  border: 1px solid var(--kbd-border);
+  color: var(--kbd-text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* Status Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--height-badge);
+  padding: 0 6px;
+  border-radius: var(--radius-badge);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  text-transform: lowercase;
+}
+.badge-ok {
+  border: 1px solid var(--semantic-ok);
+  color: var(--semantic-ok);
+}
+.badge-warning {
+  border: 1px solid var(--semantic-warning);
+  color: var(--semantic-warning);
+}
+.badge-danger {
+  border: 1px solid var(--semantic-danger);
+  color: var(--semantic-danger);
+}
+.badge-neutral {
+  border: 1px solid var(--border-default);
+  color: var(--text-muted);
+}
+
+/* Solid 6px Indicator Dot */
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.status-dot-ok { background: var(--semantic-ok); }
+.status-dot-warning { background: var(--semantic-warning); }
+.status-dot-danger { background: var(--semantic-danger); }
+.status-dot-neutral { background: var(--border-strong); }

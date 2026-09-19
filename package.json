@@ -1,0 +1,17 @@
+{
+  "name": "syncpulse",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run --prefix server dev\" \"npm run --prefix client dev\"",
+    "dev:server": "npm run --prefix server dev",
+    "dev:client": "npm run --prefix client dev",
+    "build": "npm run --prefix client build && npm run --prefix server build",
+    "start": "node server/dist/index.js",
+    "seed": "npm run --prefix server seed"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
