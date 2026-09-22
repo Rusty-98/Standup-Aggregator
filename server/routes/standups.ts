@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
+import { db } from '../db/client.js';
 import { authMiddleware, AuthenticatedRequest } from '../lib/authMiddleware.js';
 import {
   getStandup,
@@ -21,16 +22,20 @@ standupsRouter.get('/today', (req: AuthenticatedRequest, res: Response): void =>
   const todayDateStr = getOrgDate();
 
   const entry = getStandup(user.id, todayDateStr);
-  const carryOver = entry ? [] : getCarryOverItems(user.id, todayDateStr);
+  // Preserve carry-over until submitted (PRD §4.5)
+  const carryOver = (entry && entry.status === 'submitted') ? [] : getCarryOverItems(user.id, todayDateStr);
   const leaveToday = isUserOnLeave(user.id, todayDateStr);
-  const windowState = isPastCutoff() ? 'past_cutoff' : 'open';
+
+  const team = user.team_id ? db.prepare('SELECT digest_time FROM teams WHERE id = ?').get(user.team_id) as any : null;
+  const cutoffTime = team?.digest_time || DIGEST_TIME;
+  const windowState = isPastCutoff(cutoffTime) ? 'past_cutoff' : 'open';
 
   res.json({
     entry,
     carryOver,
     windowState,
     leaveToday,
-    cutoffTime: DIGEST_TIME,
+    cutoffTime,
     orgTimezone: ORG_TIMEZONE,
     currentOrgDate: todayDateStr
   });

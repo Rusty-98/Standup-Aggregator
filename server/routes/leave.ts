@@ -14,15 +14,22 @@ leaveRouter.get('/', (req: AuthenticatedRequest, res: Response): void => {
   const to = req.query.to as string | undefined;
   const targetUserId = req.query.userId ? parseInt(req.query.userId as string, 10) : undefined;
 
-  // If member role and targetUserId is another user, restrict
-  let queryUserId = targetUserId || user.id;
+  let queryUserId: number | undefined = targetUserId;
+  let queryTeamId: number | undefined = undefined;
+
   if (user.role === 'member') {
     queryUserId = user.id;
-  } else if (req.query.userId === 'all') {
-    queryUserId = undefined as any;
+  } else if (user.role === 'admin') {
+    if (req.query.userId === 'all' || !targetUserId) {
+      queryUserId = undefined;
+      queryTeamId = user.team_id || undefined;
+    }
+    if (req.query.teamId) {
+      queryTeamId = parseInt(req.query.teamId as string, 10);
+    }
   }
 
-  const leaves = getLeaves({ userId: queryUserId, from, to });
+  const leaves = getLeaves({ userId: queryUserId, teamId: queryTeamId, from, to });
   res.json(leaves);
 });
 
@@ -47,8 +54,8 @@ leaveRouter.post('/', (req: AuthenticatedRequest, res: Response): void => {
   let targetUserId = user.id;
 
   if (userId && userId !== user.id) {
-    if (user.role !== 'lead' && user.role !== 'admin') {
-      res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Only leads and admins can record leave for others' } });
+    if (user.role !== 'admin') {
+      res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Only admins can record leave for others' } });
       return;
     }
     targetUserId = userId;

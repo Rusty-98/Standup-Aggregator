@@ -2,61 +2,86 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { User, Team } from '@shared/types.js';
 import { fetchApi } from '../../lib/api.js';
+import { formatHumanTime } from '../../lib/dateUtils.js';
+import { ConfirmDialog } from '../ui/Modal.js';
 import { Sun, Moon, LogOut } from 'lucide-react';
 
 interface NavbarProps {
   user: User;
   team: Team | null;
+  cutoff?: string;
+  orgTimezone?: string;
   onLogout: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ user, team, onLogout }) => {
+export const Navbar: React.FC<NavbarProps> = ({ user, team, cutoff, orgTimezone, onLogout }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('theme');
+    return saved === 'light' || saved === 'dark' ? saved : 'dark';
+  });
   const [countdown, setCountdown] = useState<string>('');
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('theme') as 'dark' | 'light' | null;
-    const initial = saved || 'dark';
-    setTheme(initial);
-    document.documentElement.setAttribute('data-theme', initial);
-  }, []);
+    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.style.colorScheme = theme;
+  }, [theme]);
 
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
-    document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('theme', next);
   };
 
-  // 20:00 cutoff countdown
   useEffect(() => {
     const updateCountdown = () => {
-      const now = new Date();
-      // Target 20:00 today
-      const target = new Date(now);
-      target.setHours(20, 0, 0, 0);
+      const targetTime = cutoff || team?.digest_time || '20:00';
+      const [targetH, targetM] = targetTime.split(':').map(Number);
+      const tz = orgTimezone || 'Asia/Kolkata';
 
-      const diff = target.getTime() - now.getTime();
-      if (diff <= 0) {
-        setCountdown('cutoff reached');
+      const now = new Date();
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+      const parts = formatter.formatToParts(now);
+      const curHRaw = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+      const curH = curHRaw === 24 ? 0 : curHRaw;
+      const curM = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+
+      const nowMinutes = curH * 60 + curM;
+      const targetMinutes = targetH * 60 + targetM;
+      const diffMinutes = targetMinutes - nowMinutes;
+      const human = formatHumanTime(targetTime, tz);
+
+      if (diffMinutes <= 0) {
+        setCountdown(`Digest locked · was ${human}`);
       } else {
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        setCountdown(`${hours}h ${mins}m to 20:00`);
+        const hours = Math.floor(diffMinutes / 60);
+        const mins = diffMinutes % 60;
+        setCountdown(`${hours > 0 ? `${hours}h ` : ''}${mins}m until digest locks (${human})`);
       }
     };
 
     updateCountdown();
-    const interval = setInterval(updateCountdown, 60000);
+    const interval = setInterval(updateCountdown, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [cutoff, orgTimezone, team]);
 
   const handleSignOut = async () => {
+    setSigningOut(true);
     try {
       await fetchApi('/api/auth/logout', { method: 'POST' });
-    } catch (e) {}
+    } catch {
+      /* still clear local session */
+    }
+    setSigningOut(false);
+    setConfirmSignOut(false);
     onLogout();
     navigate('/signin');
   };
@@ -64,8 +89,8 @@ export const Navbar: React.FC<NavbarProps> = ({ user, team, onLogout }) => {
   const navItems = [
     { label: 'Today', path: '/today' },
     { label: 'Team', path: '/team' },
-    { label: 'Leave', path: '/leave' },
     { label: 'Recap', path: '/recap' },
+    { label: 'Leave', path: '/leave' },
     ...(user.role === 'admin' ? [{ label: 'Admin', path: '/admin' }] : [])
   ];
 
@@ -77,15 +102,19 @@ export const Navbar: React.FC<NavbarProps> = ({ user, team, onLogout }) => {
         zIndex: 50,
         background: 'var(--surface-1)',
         borderBottom: '1px solid var(--border-default)',
-        height: '48px',
+        boxShadow: 'var(--shadow-sticky)',
+        minHeight: '48px',
         display: 'flex',
         alignItems: 'center',
-        padding: '0 20px'
+        justifyContent: 'space-between',
+        padding: '0 16px',
+        flexWrap: 'wrap',
+        gap: '8px'
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <Link to="/today" style={{ textDecoration: 'none', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontWeight: 600, fontSize: '15px', letterSpacing: '-0.02em' }}>SyncPulse</span>
+          <img src="/favicon.png" alt="Dailies" width={32} height={32} style={{ display: 'block', width: 32, height: 32 }} />
           {team && (
             <span className="badge badge-neutral" style={{ fontSize: '11px' }}>
               {team.name}
@@ -102,8 +131,8 @@ export const Navbar: React.FC<NavbarProps> = ({ user, team, onLogout }) => {
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              marginLeft: '8px',
-              paddingLeft: '12px',
+              marginLeft: '6px',
+              paddingLeft: '10px',
               borderLeft: '1px solid var(--border-default)'
             }}
           >
@@ -113,8 +142,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, team, onLogout }) => {
         )}
       </div>
 
-      {/* Center Nav Links */}
-      <nav style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+      <nav style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', maxWidth: '100%' }} aria-label="Main">
         {navItems.map(item => {
           const isActive = location.pathname === item.path;
           return (
@@ -127,7 +155,9 @@ export const Navbar: React.FC<NavbarProps> = ({ user, team, onLogout }) => {
                 height: '28px',
                 padding: '0 10px',
                 fontSize: '12.5px',
-                border: isActive ? 'none' : '1px solid transparent'
+                whiteSpace: 'nowrap',
+                border: isActive ? 'none' : '1px solid transparent',
+                transition: 'background-color var(--motion), color var(--motion)'
               }}
             >
               {item.label}
@@ -136,35 +166,45 @@ export const Navbar: React.FC<NavbarProps> = ({ user, team, onLogout }) => {
         })}
       </nav>
 
-      {/* Right Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <button
           type="button"
           onClick={toggleTheme}
           className="btn-secondary btn-compact"
           style={{ width: '28px', height: '28px', padding: 0 }}
-          title="Toggle color theme"
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         >
           {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '4px' }}>
           <span style={{ fontSize: '12.5px', fontWeight: 500 }}>{user.name}</span>
           <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
-            {user.role}
+            {user.role === 'admin' ? 'Admin' : 'Member'}
           </span>
         </div>
 
         <button
           type="button"
-          onClick={handleSignOut}
+          onClick={() => setConfirmSignOut(true)}
           className="btn-secondary btn-compact"
           style={{ width: '28px', height: '28px', padding: 0, marginLeft: '4px' }}
-          title="Sign out"
+          aria-label="Sign out"
         >
           <LogOut size={13} />
         </button>
       </div>
+
+      <ConfirmDialog
+        open={confirmSignOut}
+        title="Sign out?"
+        message="You will need your email code to sign in again."
+        confirmLabel="Sign out"
+        danger
+        busy={signingOut}
+        onCancel={() => setConfirmSignOut(false)}
+        onConfirm={handleSignOut}
+      />
     </header>
   );
 };

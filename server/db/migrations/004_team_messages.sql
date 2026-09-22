@@ -1,0 +1,4 @@
+ALTER TABLE teams ADD COLUMN webhook_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE teams ADD COLUMN reminder_template TEXT NOT NULL DEFAULT '';
+ALTER TABLE teams ADD COLUMN digest_template TEXT NOT NULL DEFAULT '';
+ALTER TABLE auth_codes ADD COLUMN purpose TEXT NOT NULL DEFAULT 'login';

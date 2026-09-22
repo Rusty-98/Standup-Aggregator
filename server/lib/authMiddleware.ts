@@ -7,7 +7,7 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-  const sessionId = req.cookies?.['syncpulse_session'];
+  const sessionId = req.cookies?.['dailies_session'];
 
   if (!sessionId) {
     res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
@@ -22,7 +22,7 @@ export function authMiddleware(req: AuthenticatedRequest, res: Response, next: N
   `).get(sessionId) as any;
 
   if (!session) {
-    res.clearCookie('syncpulse_session');
+    res.clearCookie('dailies_session');
     res.status(401).json({ error: { code: 'SESSION_EXPIRED', message: 'Session has expired' } });
     return;
   }

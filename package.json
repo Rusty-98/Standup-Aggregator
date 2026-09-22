@@ -1,5 +1,5 @@
 {
-  "name": "syncpulse",
+  "name": "dailies",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -8,10 +8,13 @@
     "dev:server": "npm run --prefix server dev",
     "dev:client": "npm run --prefix client dev",
     "build": "npm run --prefix client build && npm run --prefix server build",
-    "start": "node server/dist/index.js",
-    "seed": "npm run --prefix server seed"
+    "start": "node server/dist/server/index.js",
+    "seed": "npm run --prefix server seed",
+    "test": "npm run --prefix server test && npm run --prefix client test",
+    "test:server": "npm run --prefix server test",
+    "test:client": "npm run --prefix client test"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.2.4"
   }
 }

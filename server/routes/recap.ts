@@ -1,33 +1,25 @@
 import { Router, Response } from 'express';
-import { db } from '../db/client.js';
 import { authMiddleware, AuthenticatedRequest } from '../lib/authMiddleware.js';
+import { getPersonalWeek, getRecapAnalysis } from '../services/recapAnalysisService.js';
 
 export const recapRouter = Router();
 
 recapRouter.use(authMiddleware);
 
-// GET /api/recap/week
 recapRouter.get('/week', (req: AuthenticatedRequest, res: Response): void => {
   const user = req.user!;
-  const from = req.query.from as string;
-  const to = req.query.to as string;
-
-  let query = `
-    SELECT * FROM standups
-    WHERE user_id = ?
-  `;
-  const params: any[] = [user.id];
-
-  if (from && to) {
-    query += ` AND standup_date >= ? AND standup_date <= ?`;
-    params.push(from, to);
-  } else {
-    query += ` ORDER BY standup_date DESC LIMIT 7`;
-  }
-
-  const entries = db.prepare(query).all(...params);
+  const week = getPersonalWeek(user.id);
   res.json({
     user,
-    entries
+    from: week.from,
+    to: week.to,
+    days: week.days,
+    entries: week.days.map(d => d.standup).filter(Boolean)
   });
+});
+
+recapRouter.post('/analysis', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const user = req.user!;
+  const analysis = await getRecapAnalysis(user.id);
+  res.json(analysis);
 });

@@ -24,12 +24,14 @@ export function getOrgDateParts(d: Date = new Date()): { year: number; month: nu
   // Weekday index (0 = Sun, 1 = Mon, ..., 6 = Sat)
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const weekday = days.indexOf(partMap['weekday']);
+  let hour = parseInt(partMap['hour'], 10);
+  if (hour === 24) hour = 0;
 
   return {
     year: parseInt(partMap['year'], 10),
     month: parseInt(partMap['month'], 10),
     day: parseInt(partMap['day'], 10),
-    hour: parseInt(partMap['hour'], 10),
+    hour,
     minute: parseInt(partMap['minute'], 10),
     weekday
   };
@@ -45,6 +47,22 @@ export function getOrgTime(d: Date = new Date()): string {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
+/** Wall-clock timestamp in org timezone, e.g. 2026-09-21 19:30:00 */
+export function getOrgDateTime(d: Date = new Date()): string {
+  const { year, month, day, hour, minute } = getOrgDateParts(d);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+}
+
+export function formatOrgClock(dateTime: string | null | undefined): string {
+  if (!dateTime) return '—';
+  const match = dateTime.match(/(\d{2}):(\d{2})/);
+  return match ? `${match[1]}:${match[2]}` : '—';
+}
+
+export function isTimePastOrEqual(currentHhMm: string, targetHhMm: string): boolean {
+  return currentHhMm >= targetHhMm;
+}
+
 export function isPastCutoff(cutoff: string = DIGEST_TIME): boolean {
   const currentTime = getOrgTime();
   return currentTime >= cutoff;
@@ -53,10 +71,16 @@ export function isPastCutoff(cutoff: string = DIGEST_TIME): boolean {
 export function isWorkingDay(dateStr: string): boolean {
   const [y, m, d] = dateStr.split('-').map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-  const day = dt.getUTCDay(); // 0 = Sun, 6 = Sat
+  const day = dt.getUTCDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+  const dayIso = day === 0 ? 7 : day; // 1 = Mon ... 7 = Sun
 
-  // Weekend check
-  if (day === 0 || day === 6) return false;
+  const workDaysRaw = process.env.WORK_DAYS || '1,2,3,4,5';
+  if (workDaysRaw !== '*') {
+    const configuredDays = workDaysRaw.split(',').map(x => parseInt(x.trim(), 10));
+    if (!configuredDays.includes(day) && !configuredDays.includes(dayIso)) {
+      return false;
+    }
+  }
 
   // Holiday check
   const holiday = db.prepare('SELECT date FROM holidays WHERE date = ?').get(dateStr);

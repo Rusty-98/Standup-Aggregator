@@ -16,6 +16,8 @@ server/dist/
 *.db-shm
 /data/
 syncpulse.db
+dailies.db
+server/exports/*.xlsx
 
 # Environment variables & local secrets
 .env
@@ -30,6 +32,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# One-off local patch scripts
+scripts/patch-*.mjs
 
 # Editor & OS files
 .DS_Store

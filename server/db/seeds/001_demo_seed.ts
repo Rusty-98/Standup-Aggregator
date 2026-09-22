@@ -3,46 +3,12 @@ import { db, runMigrations } from '../client.js';
 export function seedDemoData() {
   runMigrations();
 
-  // Create Default Team
-  const insertTeam = db.prepare(`
-    INSERT OR IGNORE INTO teams (id, name, slug, extra_digest_recipients)
-    VALUES (1, 'Engineering', 'engineering', '[]')
-  `);
-  insertTeam.run();
+  db.prepare(`
+    INSERT OR IGNORE INTO teams (id, name, slug, extra_digest_recipients, reminder_morning_time, reminder_cutoff_time, digest_time)
+    VALUES (1, 'Engineering', 'engineering', '[]', '09:30', '19:15', '20:00')
+  `).run();
 
-  // Seed Users
-  const defaultRoster = [
-    { name: 'Sumit Singh', email: 'sumit.singh@company.com', role: 'admin' },
-    { name: 'Aishwarya Kokate', email: 'aishwarya.kokate@company.com', role: 'lead' },
-    { name: 'Abhishek K', email: 'abhishek.k@company.com', role: 'member' },
-    { name: 'Anusha Hadimani', email: 'anusha.hadimani@company.com', role: 'member' },
-    { name: 'Anushka Gupta', email: 'anushka.gupta@company.com', role: 'member' },
-    { name: 'Dhruba Seal', email: 'dhruba.seal@company.com', role: 'member' },
-    { name: 'Eshwari S', email: 'eshwari.s@company.com', role: 'member' },
-    { name: 'Komal Singh', email: 'komal.singh@company.com', role: 'member' },
-    { name: 'Kusuma BR', email: 'kusuma.br@company.com', role: 'member' },
-    { name: 'Manjunath KG', email: 'manjunath.kg@company.com', role: 'member' },
-    { name: 'Nikhil Saini', email: 'nikhil.saini@company.com', role: 'member' },
-    { name: 'Pooja TB', email: 'pooja.tb@company.com', role: 'member' },
-    { name: 'Priyanka S', email: 'priyanka.s@company.com', role: 'member' },
-    { name: 'Varun Methwani', email: 'varun.methwani@company.com', role: 'member' },
-    { name: 'Vedant Patil', email: 'vedant.patil@company.com', role: 'member' }
-  ];
-
-  const insertUser = db.prepare(`
-    INSERT OR IGNORE INTO users (email, name, role, team_id, is_active)
-    VALUES (?, ?, ?, 1, 1)
-  `);
-
-  for (const u of defaultRoster) {
-    insertUser.run(u.email, u.name, u.role);
-  }
-
-  // Seed sample holidays
-  const insertHoliday = db.prepare(`
-    INSERT OR IGNORE INTO holidays (date, name)
-    VALUES (?, ?)
-  `);
+  db.prepare(`UPDATE users SET role = 'member' WHERE role = 'lead'`).run();
 
   const holidays = [
     { date: '2026-01-01', name: "New Year's Day" },
@@ -52,11 +18,31 @@ export function seedDemoData() {
     { date: '2026-12-25', name: 'Christmas Day' }
   ];
 
+  const insertHoliday = db.prepare(`INSERT OR IGNORE INTO holidays (date, name) VALUES (?, ?)`);
   for (const h of holidays) {
     insertHoliday.run(h.date, h.name);
   }
 
-  console.log('[Seed] Database seeded with default engineering team, 15 users, and holidays.');
+  const adminCount = (db.prepare(`SELECT COUNT(*) as count FROM users WHERE role = 'admin' AND is_active = 1`).get() as { count: number }).count;
+  if (adminCount === 0) {
+    console.log('[Seed] No admin user exists yet. Create one in SQLite or use the first-run admin email in ADMIN_EMAIL.');
+    const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+    if (adminEmail) {
+      const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail) as { id: number } | undefined;
+      if (!existing) {
+        db.prepare(`
+          INSERT INTO users (email, name, role, team_id, is_active)
+          VALUES (?, 'Admin', 'admin', 1, 1)
+        `).run(adminEmail);
+        console.log(`[Seed] Created admin from ADMIN_EMAIL: ${adminEmail}`);
+      } else {
+        db.prepare(`UPDATE users SET role = 'admin', is_active = 1 WHERE email = ?`).run(adminEmail);
+        console.log(`[Seed] Promoted ADMIN_EMAIL to admin: ${adminEmail}`);
+      }
+    }
+  }
+
+  console.log('[Seed] Ready. Add submitters from the admin console. Seed does not create demo members.');
 }
 
 if (import.meta.url.endsWith(process.argv[1]) || process.argv[1]?.includes('seed')) {

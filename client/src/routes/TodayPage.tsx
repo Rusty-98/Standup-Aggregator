@@ -4,7 +4,10 @@ import { TodayResponse, DaySummary, BlockerSeverity, User } from '@shared/types.
 import { TiptapEditor } from '../components/editor/TiptapEditor.js';
 import { DayStrip } from '../components/ui/DayStrip.js';
 import { CarryOverItem } from '../components/editor/CarryOverItem.js';
-import { formatDisplayDate } from '../lib/dateUtils.js';
+import { ConfirmDialog } from '../components/ui/Modal.js';
+import { formatDisplayDate, getOrgToday, isMacPlatform } from '../lib/dateUtils.js';
+import { friendlyError, leaveTypeLabel, severityLabel, standupStatusLabel } from '../lib/labels.js';
+import { htmlHasContent } from '../lib/htmlContent.js';
 import { CheckCircle, Edit3, ShieldAlert } from 'lucide-react';
 
 interface TodayPageProps {
@@ -34,6 +37,32 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
   const [saveStatus, setSaveStatus] = useState<string>('All changes saved');
   const [error, setError] = useState<string | null>(null);
   const [teammates, setTeammates] = useState<Array<{ id: number; name: string }>>([]);
+  const [livePastCutoff, setLivePastCutoff] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<{ id: string; text: string } | null>(null);
+  const editSnapshot = useRef<{
+    yesterday: string;
+    today: string;
+    hasBlockers: boolean;
+    blocker: string;
+    severity: BlockerSeverity;
+    blockedOn: number | null;
+  } | null>(null);
+  const modKey = isMacPlatform() ? '⌘' : 'Ctrl';
+
+  const handleRemoveCarryItem = (id: string, text: string) => {
+    setCarryItems(prev => prev.filter(c => c.id !== id));
+    setTodayHtml(prevHtml => {
+      const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`<li[^>]*>.*?${escaped}.*?<\\/li>`, 'gi');
+      const updated = prevHtml.replace(regex, '');
+      if (updated.replace(/<ul[^>]*>|<\/ul>|\s/gi, '') === '') {
+        return '';
+      }
+      return updated;
+    });
+  };
 
   const debounceTimer = useRef<any>(null);
 
@@ -41,10 +70,11 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
   const loadInitialData = async () => {
     try {
       setLoading(true);
+      setError(null);
       const [todayRes, historyRes, teamRes] = await Promise.all([
         fetchApi<TodayResponse>('/api/standups/today'),
         fetchApi<DaySummary[]>('/api/standups/mine?days=7'),
-        fetchApi<any>('/api/team/' + new Date().toISOString().slice(0, 10))
+        fetchApi<any>('/api/team/' + getOrgToday())
       ]);
 
       setData(todayRes);
@@ -63,8 +93,13 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
         setBlockerSeverity(todayRes.entry.blocker_severity || 'medium');
         setBlockedOnUserId(todayRes.entry.blocked_on_user_id);
         setIsSubmitted(todayRes.entry.status === 'submitted');
+        if (todayRes.entry.status !== 'submitted' && todayRes.carryOver?.length) {
+          setCarryItems(todayRes.carryOver);
+        } else {
+          setCarryItems([]);
+        }
       } else {
-        // Apply carry-over items
+        setIsSubmitted(false);
         if (todayRes.carryOver && todayRes.carryOver.length > 0) {
           setCarryItems(todayRes.carryOver);
           let listHtml = '<ul data-type="taskList">';
@@ -73,6 +108,8 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
           }
           listHtml += '</ul>';
           setTodayHtml(listHtml);
+        } else {
+          setCarryItems([]);
         }
       }
     } catch (err: any) {
@@ -85,6 +122,27 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
   useEffect(() => {
     loadInitialData();
   }, []);
+
+  useEffect(() => {
+    if (!data?.cutoffTime) return;
+    const tick = () => {
+      const [targetH, targetM] = data.cutoffTime.split(':').map(Number);
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: data.orgTimezone || 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+      const parts = formatter.formatToParts(new Date());
+      let curH = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+      if (curH === 24) curH = 0;
+      const curM = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+      setLivePastCutoff(curH * 60 + curM >= targetH * 60 + targetM);
+    };
+    tick();
+    const id = setInterval(tick, 15000);
+    return () => clearInterval(id);
+  }, [data?.cutoffTime, data?.orgTimezone]);
 
   // Autosave Draft
   const saveDraft = useCallback(async () => {
@@ -106,7 +164,7 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
       });
       setSaveStatus('Saved just now');
     } catch (err: any) {
-      setSaveStatus('Save failed');
+      setSaveStatus('Save failed — retry');
     }
   }, [data, yesterdayHtml, todayHtml, hasBlockers, blockerHtml, blockerSeverity, blockedOnUserId, isSubmitted, isEditing]);
 
@@ -118,12 +176,49 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
     }, 800);
   };
 
+  const startEditing = () => {
+    editSnapshot.current = {
+      yesterday: yesterdayHtml,
+      today: todayHtml,
+      hasBlockers,
+      blocker: blockerHtml,
+      severity: blockerSeverity,
+      blockedOn: blockedOnUserId
+    };
+    setIsEditing(true);
+    setFormError(null);
+  };
+
+  const cancelEditing = () => {
+    if (editSnapshot.current) {
+      setYesterdayHtml(editSnapshot.current.yesterday);
+      setTodayHtml(editSnapshot.current.today);
+      setHasBlockers(editSnapshot.current.hasBlockers);
+      setBlockerHtml(editSnapshot.current.blocker);
+      setBlockerSeverity(editSnapshot.current.severity);
+      setBlockedOnUserId(editSnapshot.current.blockedOn);
+    }
+    setIsEditing(false);
+    setFormError(null);
+  };
+
   // Submit Standup
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!data) return;
+    if (!data || isSubmitting) return;
+    setFormError(null);
     setError(null);
 
+    if (!htmlHasContent(todayHtml)) {
+      setFormError('Add at least one item under “What are you doing today?” before submitting.');
+      return;
+    }
+    if (hasBlockers && !htmlHasContent(blockerHtml)) {
+      setFormError('Describe the blocker, or turn off “I’m blocked”.');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       await fetchApi(`/api/standups/${data.currentOrgDate}/submit`, {
         method: 'POST',
@@ -140,19 +235,22 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
       setIsSubmitted(true);
       setIsEditing(false);
       setSaveStatus('Submitted');
+      editSnapshot.current = null;
 
-      // Refresh 7-day strip
       const updatedDays = await fetchApi<DaySummary[]>('/api/standups/mine?days=7');
       setDays(updatedDays);
     } catch (err: any) {
-      setError(err.message);
+      setFormError(friendlyError(err, 'Could not submit. Check your connection and try again.'));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Keyboard shortcut: Cmd/Ctrl + Enter
+  // Keyboard shortcut: Cmd/Ctrl+Enter
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        if (isSubmitting) return;
         if (!isSubmitted || isEditing) {
           handleSubmit();
         }
@@ -160,7 +258,7 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleSubmit, isSubmitted, isEditing]);
+  }, [handleSubmit, isSubmitted, isEditing, isSubmitting]);
 
   if (loading) {
     return (
@@ -170,11 +268,29 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
     );
   }
 
-  const isPastCutoff = data?.windowState === 'past_cutoff';
+  const isPastCutoff = data?.windowState === 'past_cutoff' || livePastCutoff;
   const isReadOnly = (isSubmitted && !isEditing) || isPastCutoff;
 
+  const selectedDay = days.find(d => d.date === selectedDate);
+  const isViewingPast = Boolean(selectedDate && selectedDate !== data?.currentOrgDate);
+
   return (
-    <main style={{ maxWidth: '780px', margin: '24px auto', padding: '0 16px 60px' }}>
+    <main className="page-enter" style={{ maxWidth: '780px', margin: '24px auto', padding: '0 16px 60px' }}>
+      {(formError || error) && (
+        <div className="alert alert-err" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <span>{formError || error}</span>
+          {error && !formError && (
+            <button
+              type="button"
+              className="btn-secondary btn-compact"
+              onClick={loadInitialData}
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Rolling 7-day strip */}
       {days.length > 0 && (
         <DayStrip
@@ -184,8 +300,69 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
         />
       )}
 
-      {/* Cutoff warning banner */}
-      {isPastCutoff && (
+      {/* Read-only Past Standup View (PRD §4.2) */}
+      {isViewingPast && (
+        <div className="card" style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>
+                Past standup · {standupStatusLabel(selectedDay?.status)}
+              </div>
+              <h2 style={{ fontSize: '16px', fontWeight: 600, marginTop: '2px' }}>
+                {formatDisplayDate(selectedDate)}
+              </h2>
+            </div>
+            <button
+              type="button"
+              className="btn-secondary btn-compact"
+              onClick={() => setSelectedDate(data?.currentOrgDate || '')}
+            >
+              ← Back to Today
+            </button>
+          </div>
+
+          {selectedDay?.standup ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {selectedDay.standup.yesterday_html && (
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Yesterday
+                  </div>
+                  <div dangerouslySetInnerHTML={{ __html: selectedDay.standup.yesterday_html }} style={{ fontSize: '13.5px', color: 'var(--text-primary)' }} />
+                </div>
+              )}
+              {selectedDay.standup.today_html && (
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Today
+                  </div>
+                  <div dangerouslySetInnerHTML={{ __html: selectedDay.standup.today_html }} style={{ fontSize: '13.5px', color: 'var(--text-primary)' }} />
+                </div>
+              )}
+              {selectedDay.standup.has_blockers && selectedDay.standup.blocker_html && (
+                <div style={{ padding: '12px', background: 'var(--semantic-danger-bg)', borderLeft: '3px solid var(--semantic-danger)', borderRadius: 'var(--radius-control)' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--semantic-danger)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Blocker ({severityLabel(selectedDay.standup.blocker_severity || 'medium')})
+                  </div>
+                  <div dangerouslySetInnerHTML={{ __html: selectedDay.standup.blocker_html }} style={{ fontSize: '13px', color: 'var(--text-primary)' }} />
+                </div>
+              )}
+            </div>
+          ) : selectedDay?.leaveInfo ? (
+            <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              Out of office · {leaveTypeLabel(selectedDay.leaveInfo.type)} {selectedDay.leaveInfo.note ? `— "${selectedDay.leaveInfo.note}"` : ''}
+            </div>
+          ) : (
+            <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+              {selectedDay?.status === 'weekend' || selectedDay?.status === 'holiday'
+                ? `Non-working day (${selectedDay.status})`
+                : 'No standup was submitted for this date.'}
+            </div>
+          )}
+        </div>
+      )}
+
+      {isPastCutoff && !isViewingPast && (
         <div
           style={{
             display: 'flex',
@@ -205,8 +382,20 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
         </div>
       )}
 
+      {data?.leaveToday && !isViewingPast && !isSubmitted && (
+        <div className="card" style={{ marginBottom: '16px' }}>
+          <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '6px' }}>You’re marked off today</div>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+            You won’t be listed as missing on the team digest. You can still submit an update if you want.
+          </p>
+          <a href="/leave" className="btn-secondary btn-compact" style={{ textDecoration: 'none' }}>
+            Manage leave
+          </a>
+        </div>
+      )}
+
       {/* Submitted Summary Card (When submitted and not editing) */}
-      {isSubmitted && !isEditing && (
+      {isSubmitted && !isEditing && !isViewingPast && (
         <div className="card" style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -219,7 +408,7 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
               <button
                 type="button"
                 className="btn-secondary btn-compact"
-                onClick={() => setIsEditing(true)}
+                onClick={startEditing}
               >
                 <Edit3 size={13} />
                 <span>Edit update</span>
@@ -248,7 +437,7 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
               <div style={{ borderTop: '1px solid var(--border-default)', paddingTop: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
                   <span className={`badge ${blockerSeverity === 'critical' ? 'badge-danger' : 'badge-warning'}`}>
-                    {blockerSeverity} blocker
+                    {severityLabel(blockerSeverity)} blocker
                   </span>
                 </div>
                 <div dangerouslySetInnerHTML={{ __html: blockerHtml }} style={{ fontSize: '13.5px' }} />
@@ -259,24 +448,16 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
       )}
 
       {/* Submission Form (Shown when draft or in edit mode) */}
-      {(!isSubmitted || isEditing) && (
+      {(!isViewingPast && (!isSubmitted || isEditing)) && (
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {error && (
-            <div
-              style={{
-                padding: '8px 12px',
-                border: '1px solid var(--semantic-danger)',
-                borderRadius: 'var(--radius-control)',
-                color: 'var(--semantic-danger)',
-                fontSize: '13px'
-              }}
-            >
+            <div className="alert alert-err">
               {error}
             </div>
           )}
 
           {/* Carried over chips */}
-          {carryItems.length > 0 && (
+          {carryItems.length > 0 && !isSubmitted && (
             <div style={{ padding: '12px', background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-card)' }}>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
                 Carried over from yesterday's priorities:
@@ -286,7 +467,7 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
                   <CarryOverItem
                     key={item.id}
                     item={item}
-                    onRemove={id => setCarryItems(prev => prev.filter(c => c.id !== id))}
+                    onRemove={() => setPendingRemove(item)}
                   />
                 ))}
               </div>
@@ -425,13 +606,20 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
             )}
           </div>
 
-          {/* Action Bar */}
+          {/* Sticky Action Bar (PRD §4.6) */}
           <div
             style={{
+              position: 'sticky',
+              bottom: '12px',
+              zIndex: 20,
+              background: 'var(--surface-1)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-card)',
+              padding: '12px 16px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              paddingTop: '8px'
+              boxShadow: 'var(--shadow-sticky)'
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -443,7 +631,7 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
                 <button
                   type="button"
                   className="btn-secondary"
-                  onClick={() => setIsEditing(false)}
+                  onClick={cancelEditing}
                 >
                   Cancel
                 </button>
@@ -451,15 +639,30 @@ export const TodayPage: React.FC<TodayPageProps> = ({ currentUser }) => {
               <button
                 type="submit"
                 className="btn-primary"
-                disabled={isReadOnly}
+                disabled={isReadOnly || isSubmitting}
               >
-                <span>Submit standup</span>
-                <kbd style={{ marginLeft: '4px' }}>Ctrl + Enter</kbd>
+                <span>{isSubmitting ? 'Submitting…' : 'Submit standup'}</span>
+                <kbd style={{ marginLeft: '4px' }}>{modKey} + Enter</kbd>
               </button>
             </div>
           </div>
         </form>
       )}
+
+      <ConfirmDialog
+        open={pendingRemove != null}
+        title="Remove carried-over item?"
+        message={pendingRemove ? `“${pendingRemove.text}” will be dropped from today’s list.` : ''}
+        confirmLabel="Remove"
+        danger
+        onCancel={() => setPendingRemove(null)}
+        onConfirm={() => {
+          if (pendingRemove) {
+            setCarryItems(prev => prev.filter(c => c.id !== pendingRemove.id));
+          }
+          setPendingRemove(null);
+        }}
+      />
     </main>
   );
 };

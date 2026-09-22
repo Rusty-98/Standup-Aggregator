@@ -2,7 +2,13 @@ import { db } from '../db/client.js';
 import { renderDigestEmail, DigestEmailData } from '../emails/digestEmail.js';
 import { sendEmail } from '../lib/mailer.js';
 import { logger } from '../lib/logger.js';
-import { isWorkingDay } from '../lib/dates.js';
+import { isWorkingDay, formatOrgClock } from '../lib/dates.js';
+import { computeDigestEligibility } from '../lib/digestEligibility.js';
+import { archiveTeamStandupExcel } from './excelArchiveService.js';
+import { fillTemplate, presetOrStored, TEMPLATE_PRESETS } from '../lib/messageTemplates.js';
+import { postTeamWebhook } from './webhookService.js';
+
+const MAX_DIGEST_ATTEMPTS = 3;
 
 export function getTeamDigestData(teamId: number, dateStr: string): DigestEmailData {
   const team = db.prepare('SELECT * FROM teams WHERE id = ?').get(teamId) as unknown as { id: number; name: string; extra_digest_recipients: string } | undefined;
@@ -12,9 +18,8 @@ export function getTeamDigestData(teamId: number, dateStr: string): DigestEmailD
     SELECT * FROM users
     WHERE team_id = ? AND is_active = 1
     ORDER BY name ASC
-  `).all(teamId) as Array<{ id: number; name: string; email: string }>;
+  `).all(teamId) as Array<{ id: number; name: string; email: string; role: string }>;
 
-  // Standups for the date
   const standups = db.prepare(`
     SELECT s.*, u.name as user_name, b.name as blocked_on_name
     FROM standups s
@@ -28,7 +33,6 @@ export function getTeamDigestData(teamId: number, dateStr: string): DigestEmailD
     standupMap.set(s.user_id, s);
   }
 
-  // Leaves for the date
   const leaves = db.prepare(`
     SELECT l.*, u.name as user_name
     FROM leaves l
@@ -41,7 +45,6 @@ export function getTeamDigestData(teamId: number, dateStr: string): DigestEmailD
     leaveMap.set(l.user_id, l);
   }
 
-  // Build categories
   const blockers: DigestEmailData['blockers'] = [];
   const updates: DigestEmailData['updates'] = [];
   const notSubmittedNames: string[] = [];
@@ -52,11 +55,9 @@ export function getTeamDigestData(teamId: number, dateStr: string): DigestEmailD
     const leave = leaveMap.get(u.id);
 
     if (standup) {
-      // Formatted submitted time
-      const subTime = standup.submitted_at ? standup.submitted_at.slice(11, 16) : '—';
       updates.push({
         name: u.name,
-        submittedAtTime: subTime,
+        submittedAtTime: formatOrgClock(standup.submitted_at),
         yesterdayHtml: standup.yesterday_html,
         yesterdayText: standup.yesterday_text,
         todayHtml: standup.today_html,
@@ -77,19 +78,19 @@ export function getTeamDigestData(teamId: number, dateStr: string): DigestEmailD
         name: u.name,
         dateRange: `${leave.start_date.slice(5)} to ${leave.end_date.slice(5)}`
       });
-    } else {
+    } else if (u.role !== 'admin') {
       notSubmittedNames.push(u.name);
     }
   }
 
-  // Sort blockers: critical first
   blockers.sort((a, b) => {
     if (a.severity === 'critical' && b.severity !== 'critical') return -1;
     if (b.severity === 'critical' && a.severity !== 'critical') return 1;
     return a.name.localeCompare(b.name);
   });
 
-  const total = users.length;
+  const submitters = users.filter(u => u.role !== 'admin');
+  const total = submitters.length;
   const submittedCount = updates.length;
   const onLeaveCount = onLeave.length;
   const notSubmittedCount = notSubmittedNames.length;
@@ -97,7 +98,6 @@ export function getTeamDigestData(teamId: number, dateStr: string): DigestEmailD
 
   const summaryLine = `${submittedCount} of ${total} submitted · ${onLeaveCount} on leave · ${notSubmittedCount} not submitted · ${blockerCount} blocker${blockerCount === 1 ? '' : 's'}`;
 
-  // Format date nicely: e.g. "Tue 12 Mar 2026"
   const [y, m, d] = dateStr.split('-').map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
   const dateFormatted = dt.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -117,22 +117,64 @@ export function getTeamDigestData(teamId: number, dateStr: string): DigestEmailD
   };
 }
 
+export function getDigestEligibility(teamId: number, dateStr: string): {
+  activeMemberCount: number;
+  submittedCount: number;
+  needed: number;
+  eligible: boolean;
+} {
+  const activeMemberCount = (db.prepare(`
+    SELECT COUNT(*) as count FROM users
+    WHERE team_id = ? AND is_active = 1 AND role = 'member'
+  `).get(teamId) as { count: number }).count;
+
+  const submittedCount = (db.prepare(`
+    SELECT COUNT(*) as count
+    FROM standups s
+    JOIN users u ON u.id = s.user_id
+    WHERE s.team_id = ? AND s.standup_date = ? AND s.status = 'submitted' AND u.role = 'member'
+  `).get(teamId, dateStr) as { count: number }).count;
+
+  const { needed, eligible } = computeDigestEligibility(activeMemberCount, submittedCount);
+  return {
+    activeMemberCount,
+    submittedCount,
+    needed,
+    eligible
+  };
+}
+
+function markDigestRun(
+  runId: number,
+  status: 'sent' | 'failed' | 'skipped',
+  extra: { recipients?: number; error?: string | null } = {}
+) {
+  db.prepare(`
+    UPDATE digest_runs
+    SET status = ?, recipients = ?, error = ?, finished_at = datetime('now')
+    WHERE id = ?
+  `).run(status, extra.recipients ?? 0, extra.error ?? null, runId);
+}
+
 export async function sendDailyDigest(teamId: number, dateStr: string, force: boolean = false): Promise<boolean> {
-  // Check working day
   if (!isWorkingDay(dateStr) && !force) {
     logger.info({ dateStr }, 'Skipping daily digest — non-working day');
     return false;
   }
 
-  // Idempotency check in digest_runs
   const existingRun = db.prepare(`
     SELECT * FROM digest_runs
     WHERE kind = 'daily_digest' AND team_id = ? AND run_date = ?
   `).get(teamId, dateStr) as { id: number; status: string; attempts: number } | undefined;
 
-  if (existingRun && existingRun.status === 'sent' && !force) {
-    logger.info({ teamId, dateStr }, 'Daily digest already sent for this date');
-    return true;
+  if (existingRun && (existingRun.status === 'sent' || existingRun.status === 'skipped') && !force) {
+    logger.info({ teamId, dateStr, status: existingRun.status }, 'Daily digest already finished for this date');
+    return existingRun.status === 'sent';
+  }
+
+  if (existingRun && existingRun.status === 'failed' && existingRun.attempts >= MAX_DIGEST_ATTEMPTS && !force) {
+    logger.error({ teamId, dateStr, attempts: existingRun.attempts }, 'Daily digest failed too many times; not retrying');
+    return false;
   }
 
   let runId = existingRun?.id;
@@ -146,53 +188,90 @@ export async function sendDailyDigest(teamId: number, dateStr: string, force: bo
     db.prepare(`UPDATE digest_runs SET status = 'running', attempts = attempts + 1 WHERE id = ?`).run(runId);
   }
 
+  const eligibility = getDigestEligibility(teamId, dateStr);
+  if (!force && !eligibility.eligible) {
+    const reason = `Skipped: ${eligibility.submittedCount} of ${eligibility.needed} required member update(s) submitted (likely a quiet/holiday day)`;
+    markDigestRun(runId, 'skipped', { error: reason });
+    logger.info({ teamId, dateStr, ...eligibility }, reason);
+    return false;
+  }
+
   try {
     const data = getTeamDigestData(teamId, dateStr);
     const { html, text, subject } = renderDigestEmail(data);
 
-    // Separate recipients into TO (team members) and CC (leads, admins, and extra stakeholders)
     const teamUsers = db.prepare(`SELECT email, role, name FROM users WHERE team_id = ? AND is_active = 1`).all(teamId) as Array<{ email: string; role: string; name: string }>;
-    const team = db.prepare('SELECT extra_digest_recipients FROM teams WHERE id = ?').get(teamId) as unknown as { extra_digest_recipients: string };
-    const extra: string[] = JSON.parse(team.extra_digest_recipients || '[]');
+    const team = db.prepare('SELECT * FROM teams WHERE id = ?').get(teamId) as any;
 
-    const memberUsers = teamUsers.filter(u => u.role === 'member');
-    const leadUsers = teamUsers.filter(u => u.role === 'lead' || u.role === 'admin');
+    let extra: string[] = [];
+    try {
+      extra = JSON.parse(team.extra_digest_recipients || '[]');
+    } catch {
+      extra = [];
+    }
 
-    const toList = memberUsers.length > 0 ? memberUsers.map(u => u.email) : teamUsers.map(u => u.email);
-    const ccList = Array.from(new Set([
-      ...(memberUsers.length > 0 ? leadUsers.map(u => u.email) : []),
-      ...extra
-    ]));
+    const submitters = teamUsers.filter(u => u.role === 'member');
+    const toSet = new Set(submitters.map(u => u.email.toLowerCase()));
+    const toList = submitters.map(u => u.email);
+    const ccList = Array.from(new Set(
+      extra.map(e => e.trim().toLowerCase()).filter(e => e && !toSet.has(e))
+    ));
 
-    const totalRecipients = Array.from(new Set([...toList, ...ccList]));
+    const testOverrideTo = process.env.TEST_EMAIL_OVERRIDE_TO?.trim();
+    const testOverrideCc = process.env.TEST_EMAIL_OVERRIDE_CC?.trim();
+
+    let finalTo = toList;
+    let finalCc: string[] | undefined = ccList.length > 0 ? ccList : undefined;
+
+    if (testOverrideTo) {
+      finalTo = [testOverrideTo];
+      finalCc = testOverrideCc ? [testOverrideCc] : undefined;
+      logger.info({ testOverrideTo, testOverrideCc }, 'Using test email overrides for daily digest');
+    }
+
+    const totalRecipients = Array.from(new Set([...finalTo, ...(finalCc || [])]));
 
     if (totalRecipients.length === 0) {
-      db.prepare(`UPDATE digest_runs SET status = 'skipped', finished_at = datetime('now') WHERE id = ?`).run(runId);
+      markDigestRun(runId, 'skipped', { error: 'No digest recipients' });
       return true;
     }
 
     await sendEmail({
-      to: toList,
-      cc: ccList.length > 0 ? ccList : undefined,
+      to: finalTo,
+      cc: finalCc,
       subject,
       html,
       text
     });
 
-    db.prepare(`
-      UPDATE digest_runs
-      SET status = 'sent', recipients = ?, finished_at = datetime('now'), error = NULL
-      WHERE id = ?
-    `).run(totalRecipients.length, runId);
+    const digestText = fillTemplate(
+      presetOrStored(team.digest_template, TEMPLATE_PRESETS.standard.digest),
+      {
+        name: team.name,
+        team: team.name,
+        date: dateStr,
+        time: team.digest_time || '',
+        link: data.teamPageUrl
+      }
+    );
+    try {
+      await postTeamWebhook(team.webhook_url, digestText);
+    } catch (hookErr: any) {
+      logger.error({ teamId, err: hookErr.message }, 'Digest webhook failed');
+    }
 
+    markDigestRun(runId, 'sent', { recipients: totalRecipients.length });
     logger.info({ teamId, dateStr, recipientsCount: totalRecipients.length }, 'Daily digest successfully dispatched');
+
+    try {
+      await archiveTeamStandupExcel(teamId, dateStr);
+    } catch (archiveErr: any) {
+      logger.error({ teamId, dateStr, err: archiveErr.message }, 'Failed to write nightly Excel archive');
+    }
+
     return true;
   } catch (err: any) {
-    db.prepare(`
-      UPDATE digest_runs
-      SET status = 'failed', error = ?, finished_at = datetime('now')
-      WHERE id = ?
-    `).run(err.message, runId);
+    markDigestRun(runId, 'failed', { error: err.message });
     logger.error({ err: err.message, teamId, dateStr }, 'Failed to dispatch daily digest');
     throw err;
   }

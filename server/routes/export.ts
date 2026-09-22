@@ -5,17 +5,26 @@ import { authMiddleware, AuthenticatedRequest, requireRole } from '../lib/authMi
 
 export const exportRouter = Router();
 
-exportRouter.use(authMiddleware);
-
 // GET /api/export.xlsx?from=&to=&teamId=
-exportRouter.get('/export.xlsx', requireRole(['lead', 'admin']), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const user = req.user!;
-  const from = req.query.from as string || '2000-01-01';
-  const to = req.query.to as string || '2099-12-31';
-  const teamId = req.query.teamId ? parseInt(req.query.teamId as string, 10) : user.team_id;
+exportRouter.get('/export.xlsx', authMiddleware, requireRole(['admin']), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const user = req.user!;
+    const from = (req.query.from as string) || '2000-01-01';
+    const to = (req.query.to as string) || '2099-12-31';
+
+    // Admin can pass an explicit teamId; otherwise use their assigned team
+    let teamId = user.team_id;
+    if (req.query.teamId) {
+      teamId = parseInt(req.query.teamId as string, 10);
+    }
+
+    if (!teamId) {
+      res.status(400).json({ error: { code: 'INVALID_TEAM', message: 'No team specified or user not assigned to a team' } });
+      return;
+    }
 
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'SyncPulse';
+  workbook.creator = 'Dailies';
   workbook.created = new Date();
 
   const worksheet = workbook.addWorksheet('Standups');
@@ -79,8 +88,11 @@ exportRouter.get('/export.xlsx', requireRole(['lead', 'admin']), async (req: Aut
   }
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', `attachment; filename="syncpulse-standups-${from}-to-${to}.xlsx"`);
+  res.setHeader('Content-Disposition', `attachment; filename="dailies-standups-${from}-to-${to}.xlsx"`);
 
   await workbook.xlsx.write(res);
   res.end();
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'EXPORT_FAILED', message: `Export error: ${err.message}` } });
+  }
 });

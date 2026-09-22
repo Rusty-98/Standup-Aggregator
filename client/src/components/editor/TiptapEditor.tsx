@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
@@ -16,6 +16,19 @@ interface TiptapEditorProps {
   disabled?: boolean;
 }
 
+function normalizeUrl(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const u = new URL(withProtocol);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
 export const TiptapEditor: React.FC<TiptapEditorProps> = ({
   value,
   onChange,
@@ -24,6 +37,11 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
   isTaskListDefault = false,
   disabled = false
 }) => {
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkValue, setLinkValue] = useState('');
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const linkInputRef = useRef<HTMLInputElement>(null);
+
   const editor = useEditor({
     editable: !disabled,
     extensions: [
@@ -60,9 +78,13 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
 
   useEffect(() => {
     if (editor && value !== editor.getHTML() && !editor.isFocused) {
-      editor.commands.setContent(value || '<p></p>');
+      editor.commands.setContent(
+        value || (isTaskListDefault
+          ? '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p></p></li></ul>'
+          : '<p></p>')
+      );
     }
-  }, [value, editor]);
+  }, [value, editor, isTaskListDefault]);
 
   useEffect(() => {
     if (editor) {
@@ -70,18 +92,57 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
     }
   }, [disabled, editor]);
 
-  if (!editor) return null;
+  useEffect(() => {
+    if (linkOpen) {
+      linkInputRef.current?.focus();
+      linkInputRef.current?.select();
+    }
+  }, [linkOpen]);
 
-  const setLink = () => {
-    const previousUrl = editor.getAttributes('link').href;
-    const url = window.prompt('URL', previousUrl);
-    if (url === null) return;
-    if (url === '') {
-      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+  if (!editor) {
+    return <div className="skeleton" style={{ height: 120, borderRadius: 'var(--radius-control)' }} aria-hidden />;
+  }
+
+  const openLinkPopover = () => {
+    const previousUrl = editor.getAttributes('link').href || '';
+    setLinkValue(previousUrl);
+    setLinkError(null);
+    setLinkOpen(true);
+  };
+
+  const applyLink = () => {
+    const normalized = normalizeUrl(linkValue);
+    if (normalized === null) {
+      setLinkError('Enter a valid http(s) URL.');
       return;
     }
-    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+    if (normalized === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+    } else {
+      editor.chain().focus().extendMarkRange('link').setLink({ href: normalized }).run();
+    }
+    setLinkOpen(false);
+    setLinkError(null);
   };
+
+  const toolBtn = (
+    active: boolean,
+    onClick: () => void,
+    title: string,
+    children: React.ReactNode
+  ) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`btn-compact ${active ? 'btn-primary' : 'btn-secondary'}`}
+      style={{ height: '24px', width: '24px', padding: 0 }}
+      title={title}
+      aria-label={title}
+      aria-pressed={active}
+    >
+      {children}
+    </button>
+  );
 
   return (
     <div
@@ -91,11 +152,11 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
         background: 'var(--canvas)',
         overflow: 'hidden',
         opacity: disabled ? 0.6 : 1,
-        transition: 'border-color 0.1s ease'
+        transition: 'border-color var(--motion)',
+        position: 'relative'
       }}
       className="tiptap-container"
     >
-      {/* 5-button minimal toolbar */}
       <div
         style={{
           display: 'flex',
@@ -105,67 +166,64 @@ export const TiptapEditor: React.FC<TiptapEditorProps> = ({
           background: 'var(--surface-2)',
           borderBottom: '1px solid var(--border-default)'
         }}
+        role="toolbar"
+        aria-label="Formatting"
       >
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          className={`btn-compact ${editor.isActive('bold') ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ height: '24px', width: '24px', padding: 0 }}
-          title="Bold (Ctrl+B)"
-        >
-          <Bold size={13} />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={`btn-compact ${editor.isActive('italic') ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ height: '24px', width: '24px', padding: 0 }}
-          title="Italic (Ctrl+I)"
-        >
-          <Italic size={13} />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={`btn-compact ${editor.isActive('bulletList') ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ height: '24px', width: '24px', padding: 0 }}
-          title="Bullet list (- )"
-        >
-          <List size={13} />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className={`btn-compact ${editor.isActive('orderedList') ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ height: '24px', width: '24px', padding: 0 }}
-          title="Numbered list (1. )"
-        >
-          <ListOrdered size={13} />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleTaskList().run()}
-          className={`btn-compact ${editor.isActive('taskList') ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ height: '24px', width: '24px', padding: 0 }}
-          title="Task item checklist"
-        >
-          <CheckSquare size={13} />
-        </button>
-
-        <button
-          type="button"
-          onClick={setLink}
-          className={`btn-compact ${editor.isActive('link') ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ height: '24px', width: '24px', padding: 0 }}
-          title="Insert link"
-        >
-          <Link2 size={13} />
-        </button>
+        {toolBtn(editor.isActive('bold'), () => editor.chain().focus().toggleBold().run(), 'Bold (Ctrl+B)', <Bold size={13} />)}
+        {toolBtn(editor.isActive('italic'), () => editor.chain().focus().toggleItalic().run(), 'Italic (Ctrl+I)', <Italic size={13} />)}
+        {toolBtn(editor.isActive('bulletList'), () => editor.chain().focus().toggleBulletList().run(), 'Bullet list', <List size={13} />)}
+        {toolBtn(editor.isActive('orderedList'), () => editor.chain().focus().toggleOrderedList().run(), 'Numbered list', <ListOrdered size={13} />)}
+        {toolBtn(editor.isActive('taskList'), () => editor.chain().focus().toggleTaskList().run(), 'Task checklist', <CheckSquare size={13} />)}
+        {toolBtn(editor.isActive('link'), openLinkPopover, 'Insert link', <Link2 size={13} />)}
       </div>
+
+      {linkOpen && (
+        <div
+          className="link-popover"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            padding: '10px 12px',
+            borderBottom: '1px solid var(--border-default)',
+            background: 'var(--surface-1)'
+          }}
+        >
+          <label className="field" style={{ margin: 0 }}>
+            <span className="field-label">Link URL</span>
+            <input
+              ref={linkInputRef}
+              type="url"
+              value={linkValue}
+              onChange={e => {
+                setLinkValue(e.target.value);
+                setLinkError(null);
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  applyLink();
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setLinkOpen(false);
+                }
+              }}
+              placeholder="https://…"
+              aria-invalid={!!linkError}
+            />
+            {linkError && <span className="field-error">{linkError}</span>}
+          </label>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button type="button" className="btn-secondary btn-compact" onClick={() => setLinkOpen(false)}>
+              Cancel
+            </button>
+            <button type="button" className="btn-primary btn-compact" onClick={applyLink}>
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
 
       <div style={{ padding: '10px 12px', minHeight: '90px' }}>
         <EditorContent editor={editor} />

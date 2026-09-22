@@ -28,10 +28,12 @@ export function getUserLeaveForDate(userId: number, dateStr: string) {
 
 export function getLeaves({
   userId,
+  teamId,
   from,
   to
 }: {
   userId?: number;
+  teamId?: number;
   from?: string;
   to?: string;
 }): LeaveRecord[] {
@@ -46,6 +48,10 @@ export function getLeaves({
   if (userId) {
     query += ` AND l.user_id = ?`;
     params.push(userId);
+  }
+  if (teamId) {
+    query += ` AND u.team_id = ?`;
+    params.push(teamId);
   }
   if (from) {
     query += ` AND l.end_date >= ?`;
@@ -104,7 +110,7 @@ export function deleteLeave(id: number, requestingUserId: number, requestingUser
   const leave = db.prepare('SELECT user_id FROM leaves WHERE id = ?').get(id) as unknown as { user_id: number } | undefined;
   if (!leave) return false;
 
-  if (leave.user_id !== requestingUserId && requestingUserRole !== 'lead' && requestingUserRole !== 'admin') {
+  if (leave.user_id !== requestingUserId && requestingUserRole !== 'admin') {
     throw new Error('Unauthorized to delete this leave record');
   }
 

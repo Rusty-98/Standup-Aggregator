@@ -1,11 +1,16 @@
 import sanitizeHtml from 'sanitize-html';
 
-const ALLOWED_TAGS = ['p', 'br', 'strong', 'em', 's', 'code', 'ul', 'ol', 'li', 'a'];
+const ALLOWED_TAGS = ['p', 'br', 'strong', 'em', 's', 'code', 'ul', 'ol', 'li', 'a', 'div', 'label', 'input', 'span'];
 
 const ALLOWED_ATTRIBUTES: Record<string, string[]> = {
   a: ['href', 'title', 'target', 'rel'],
-  li: ['data-checked'],
-  ul: ['data-type']
+  li: ['data-checked', 'data-type'],
+  ul: ['data-type'],
+  ol: ['data-type'],
+  input: ['type', 'checked', 'disabled'],
+  label: [],
+  div: ['data-type'],
+  span: []
 };
 
 export function sanitizeStandupHtml(inputHtml: string): { html: string; text: string } {

@@ -9,7 +9,19 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const dbPath = process.env.DATABASE_PATH || path.resolve(process.cwd(), 'syncpulse.db');
+function getDatabasePath(): string {
+  const envPath = (process.env.DATABASE_PATH || 'dailies.db').trim();
+  if (path.isAbsolute(envPath)) {
+    return envPath;
+  }
+  let baseDir = process.cwd();
+  if (path.basename(baseDir) === 'server' && fs.existsSync(path.resolve(baseDir, '..', 'package.json'))) {
+    baseDir = path.resolve(baseDir, '..');
+  }
+  return path.resolve(baseDir, envPath);
+}
+
+const dbPath = getDatabasePath();
 const dbDir = path.dirname(dbPath);
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });

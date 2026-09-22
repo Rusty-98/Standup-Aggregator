@@ -6,7 +6,7 @@ import { db } from '../db/client.js';
 import { renderOtpEmail } from '../emails/otpEmail.js';
 import { sendEmail } from '../lib/mailer.js';
 import { authMiddleware, AuthenticatedRequest } from '../lib/authMiddleware.js';
-import { ORG_TIMEZONE, DIGEST_TIME } from '../lib/dates.js';
+import { ORG_TIMEZONE, DIGEST_TIME, getOrgDate } from '../lib/dates.js';
 
 export const authRouter = Router();
 
@@ -15,13 +15,22 @@ const allowedDomains = (process.env.ALLOWED_EMAIL_DOMAINS || 'company.com,gmail.
   .map(d => d.trim().toLowerCase());
 
 const RequestCodeSchema = z.object({
-  email: z.string().email().toLowerCase()
+  email: z.string().email().toLowerCase(),
+  bootstrap: z.boolean().optional()
 });
 
 const VerifyCodeSchema = z.object({
   email: z.string().email().toLowerCase(),
   code: z.string().length(6),
   remember: z.boolean().optional()
+});
+
+function activeAdminCount(): number {
+  return (db.prepare(`SELECT COUNT(*) as count FROM users WHERE role = 'admin' AND is_active = 1`).get() as { count: number }).count;
+}
+
+authRouter.get('/bootstrap', (_req: Request, res: Response): void => {
+  res.json({ open: activeAdminCount() === 0 });
 });
 
 // POST /api/auth/request-code
@@ -33,11 +42,18 @@ authRouter.post('/request-code', async (req: Request, res: Response): Promise<vo
   }
 
   const email = parse.data.email;
+  const bootstrap = Boolean(parse.data.bootstrap) && activeAdminCount() === 0;
   const domain = email.split('@')[1]?.toLowerCase();
 
   // Domain check
-  if (!domain || !allowedDomains.includes(domain)) {
-    res.status(400).json({ error: { code: 'INVALID_DOMAIN', message: "That domain isn't set up for SyncPulse." } });
+  const currentAllowedDomains = (process.env.ALLOWED_EMAIL_DOMAINS || 'ampcuscyber.com,company.com,gmail.com,example.com')
+    .split(',')
+    .map(d => d.trim().toLowerCase());
+
+  const isDomainAllowed = currentAllowedDomains.includes('*') || (domain && currentAllowedDomains.includes(domain));
+
+  if (!domain || !isDomainAllowed) {
+    res.status(400).json({ error: { code: 'INVALID_DOMAIN', message: "That domain isn't set up for Dailies." } });
     return;
   }
 
@@ -56,24 +72,27 @@ authRouter.post('/request-code', async (req: Request, res: Response): Promise<vo
   // Check if user exists (PRD §F1: Account must already exist. Unknown emails get same 204 but no mail)
   const user = db.prepare(`SELECT * FROM users WHERE email = ? AND is_active = 1`).get(email);
 
-  if (user) {
-    // Generate 6-digit numeric OTP
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+  if (user || bootstrap) {
+    const code = crypto.randomInt(100000, 1000000).toString();
     const codeHash = bcrypt.hashSync(code, 10);
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
-
     db.prepare(`
-      INSERT INTO auth_codes (email, code_hash, expires_at, ip)
-      VALUES (?, ?, ?, ?)
-    `).run(email, codeHash, expiresAt, req.ip || null);
+      INSERT INTO auth_codes (email, code_hash, expires_at, ip, purpose)
+      VALUES (?, ?, datetime('now', '+10 minutes'), ?, ?)
+    `).run(email, codeHash, req.ip || null, bootstrap && !user ? 'bootstrap' : 'login');
 
     const { html, text } = renderOtpEmail(code);
-    await sendEmail({
-      to: email,
-      subject: `Your SyncPulse verification code: ${code}`,
-      html,
-      text
-    });
+    try {
+      await sendEmail({
+        to: email,
+        subject: 'Your Dailies verification code',
+        html,
+        text
+      });
+    } catch (err: any) {
+      console.error(`[AUTH] Failed to send OTP email to ${email}:`, err.message);
+      res.status(500).json({ error: { code: 'MAIL_FAILED', message: 'Could not send verification email. Try again in a minute.' } });
+      return;
+    }
   }
 
   res.status(204).end();
@@ -119,26 +138,36 @@ authRouter.post('/verify-code', async (req: Request, res: Response): Promise<voi
   // Mark code consumed
   db.prepare(`UPDATE auth_codes SET consumed_at = datetime('now') WHERE id = ?`).run(authCode.id);
 
-  // Fetch user
-  const user = db.prepare(`SELECT * FROM users WHERE email = ? AND is_active = 1`).get(email) as any;
+  // Fetch user, or create the first admin from a bootstrap code
+  let user = db.prepare(`SELECT * FROM users WHERE email = ? AND is_active = 1`).get(email) as any;
   if (!user) {
-    res.status(404).json({ error: { code: 'USER_NOT_FOUND', message: 'User account not active' } });
-    return;
+    if (authCode.purpose !== 'bootstrap' || activeAdminCount() > 0) {
+      res.status(404).json({ error: { code: 'USER_NOT_FOUND', message: 'User account not active' } });
+      return;
+    }
+    const local = email.split('@')[0] || 'Admin';
+    const name = local.replace(/[._-]+/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+    db.prepare(`
+      INSERT INTO users (email, name, role, team_id, is_active)
+      VALUES (?, ?, 'admin', NULL, 1)
+    `).run(email, name.slice(0, 80));
+    user = db.prepare(`SELECT * FROM users WHERE email = ? AND is_active = 1`).get(email) as any;
   }
 
   // Create session
   const sessionId = crypto.randomUUID();
   const tokenHash = crypto.createHash('sha256').update(sessionId).digest('hex');
-  const ttlMs = remember ? (30 * 24 * 60 * 60 * 1000) : (12 * 60 * 60 * 1000);
-  const expiresAt = new Date(Date.now() + ttlMs).toISOString();
+  const expiryModifier = remember ? '+30 days' : '+12 hours';
 
   db.prepare(`
     INSERT INTO sessions (id, user_id, token_hash, expires_at, user_agent)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(sessionId, user.id, tokenHash, expiresAt, req.headers['user-agent'] || null);
+    VALUES (?, ?, ?, datetime('now', ?), ?)
+  `).run(sessionId, user.id, tokenHash, expiryModifier, req.headers['user-agent'] || null);
+
+  const ttlMs = remember ? 30 * 24 * 60 * 60 * 1000 : 12 * 60 * 60 * 1000;
 
   // Set HTTP-only Cookie
-  res.cookie('syncpulse_session', sessionId, {
+  res.cookie('dailies_session', sessionId, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
@@ -162,11 +191,11 @@ authRouter.post('/verify-code', async (req: Request, res: Response): Promise<voi
 
 // POST /api/auth/logout
 authRouter.post('/logout', (req: Request, res: Response): void => {
-  const sessionId = req.cookies?.['syncpulse_session'];
+  const sessionId = req.cookies?.['dailies_session'];
   if (sessionId) {
     db.prepare(`DELETE FROM sessions WHERE id = ?`).run(sessionId);
   }
-  res.clearCookie('syncpulse_session');
+  res.clearCookie('dailies_session');
   res.status(204).end();
 });
 
@@ -179,6 +208,7 @@ authRouter.get('/me', authMiddleware, (req: AuthenticatedRequest, res: Response)
     user,
     team,
     orgTimezone: ORG_TIMEZONE,
-    cutoff: DIGEST_TIME
+    cutoff: DIGEST_TIME,
+    currentOrgDate: getOrgDate()
   });
 });

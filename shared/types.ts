@@ -1,4 +1,4 @@
-// Shared types between Client and Server for SyncPulse v1.0
+// Shared types between Client and Server for Dailies v1.0
 
 export type UserRole = 'member' | 'lead' | 'admin';
 
@@ -29,7 +29,15 @@ export interface Team {
   name: string;
   slug: string;
   extra_digest_recipients: string[];
+  reminder_morning_time: string;
+  reminder_cutoff_time: string;
+  digest_time: string;
+  webhook_url?: string;
+  reminder_template?: string;
+  digest_template?: string;
   created_at: string;
+  members_count?: number;
+  members?: User[];
 }
 
 export interface Standup {
@@ -169,4 +177,5 @@ export interface MeResponse {
   team: Team | null;
   orgTimezone: string;
   cutoff: string;
+  currentOrgDate?: string;
 }

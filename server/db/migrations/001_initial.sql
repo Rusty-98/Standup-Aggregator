@@ -1,4 +1,4 @@
--- 001_initial.sql: Initial SyncPulse Schema
+-- 001_initial.sql: Initial Dailies Schema
 
 CREATE TABLE IF NOT EXISTS _migrations (
   id INTEGER PRIMARY KEY,

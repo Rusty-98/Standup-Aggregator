@@ -1,6 +1,6 @@
 import { db } from '../db/client.js';
 import { sanitizeStandupHtml } from '../lib/sanitize.js';
-import { isPastCutoff, isWorkingDay, getOrgDate } from '../lib/dates.js';
+import { isPastCutoff, isWorkingDay, getOrgDate, getOrgDateTime, DIGEST_TIME } from '../lib/dates.js';
 import { getUserLeaveForDate } from './leaveService.js';
 import { CarryOverItem, Standup, DaySummary, DayStatus, BlockerSeverity } from '../../shared/types.js';
 
@@ -77,9 +77,11 @@ export function saveStandupDraft(
 ): Standup {
   const todayOrg = getOrgDate();
 
-  // If editing today's entry past cutoff, reject
-  if (dateStr === todayOrg && isPastCutoff()) {
-    throw new Error('Cutoff time has passed. Today’s standup is locked.');
+  // If editing today's entry past team cutoff, reject
+  const team = db.prepare('SELECT digest_time FROM teams WHERE id = ?').get(teamId) as any;
+  const cutoff = team?.digest_time || DIGEST_TIME;
+  if (dateStr === todayOrg && isPastCutoff(cutoff)) {
+    throw new Error(`Cutoff time (${cutoff}) has passed. Today’s standup is locked.`);
   }
 
   // Past dates cannot be edited
@@ -156,8 +158,10 @@ export function submitStandup(
   }
 ): Standup {
   const todayOrg = getOrgDate();
-  if (dateStr === todayOrg && isPastCutoff()) {
-    throw new Error('Cutoff time has passed. Submissions are now closed.');
+  const team = db.prepare('SELECT digest_time FROM teams WHERE id = ?').get(teamId) as any;
+  const cutoff = team?.digest_time || DIGEST_TIME;
+  if (dateStr === todayOrg && isPastCutoff(cutoff)) {
+    throw new Error(`Cutoff time (${cutoff}) has passed. Submissions are now closed.`);
   }
 
   const tClean = sanitizeStandupHtml(data.today_html || '');
@@ -168,12 +172,11 @@ export function submitStandup(
   // Save draft values first
   saveStandupDraft(userId, teamId, dateStr, data);
 
-  // Update status to submitted and set submitted_at
   db.prepare(`
     UPDATE standups
-    SET status = 'submitted', submitted_at = datetime('now')
+    SET status = 'submitted', submitted_at = ?
     WHERE user_id = ? AND standup_date = ?
-  `).run(userId, dateStr);
+  `).run(getOrgDateTime(), userId, dateStr);
 
   return getStandup(userId, dateStr)!;
 }
